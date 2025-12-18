@@ -154,7 +154,6 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
         | "anthropic"
         | "gemini";
       const extractModel = (job.options?.extractModel ?? getModel(extractProvider, 'small')) as string;
-
       const extractedNodes: WbsNode[] = [];
 
       await step.do("extract-status-update", async () => {
@@ -172,65 +171,67 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
         }
       });
 
-      // Extract each region in sequence (each as its own step for retry granularity)
-      for (let i = 0; i < regions.length; i++) {
-        const region = regions[i];
-        const nodes = await step.do(`extract-region-${region.regionId}`, async () => {
-          try {
+      // Extract regions in parallel batches of 3 for better performance
+      const BATCH_SIZE = 3;
+      const regionBatches: typeof regions[] = [];
+      for (let i = 0; i < regions.length; i += BATCH_SIZE) {
+        regionBatches.push(regions.slice(i, i + BATCH_SIZE));
+      }
 
-            await setStatus(env, jobId, {
-              step: "extract_regions",
-              percent: 30 + Math.floor((25 * (i + 1)) / regions.length),
-              message: `Extracting region ${i + 1}/${regions.length}`,
-            });
+      for (let batchIdx = 0; batchIdx < regionBatches.length; batchIdx++) {
+        const batch = regionBatches[batchIdx];
+        const batchStartIdx = batchIdx * BATCH_SIZE;
 
-            log.info("extract_region_start", {
-              regionId: region.regionId,
-              type: region.type,
-              tokenEstimate: region.tokenEstimate,
-              provider: extractProvider,
-              model: extractModel,
-            });
+        const batchNodes = await step.do(`extract-batch-${batchIdx}`, async () => {
+          await setStatus(env, jobId, {
+            step: "extract_regions",
+            percent: 30 + Math.floor((25 * (batchStartIdx + batch.length)) / regions.length),
+            message: `Extracting regions ${batchStartIdx + 1}-${batchStartIdx + batch.length} of ${regions.length}`,
+          });
 
-            const { extraction, rawText } = await extractRegion(env, {
-              jobId,
-              mode: job.mode,
-              region,
-              llm: { provider: extractProvider, model: extractModel },
-            });
+          // Process batch in parallel
+          const results = await Promise.all(
+            batch.map(async (region) => {
+              try {
+                log.info("extract_region_start", {
+                  regionId: region.regionId,
+                  type: region.type,
+                  tokenEstimate: region.tokenEstimate,
+                  provider: extractProvider,
+                  model: extractModel,
+                });
 
-            await putArtifactJson(env, jobId, `extractions/region_${region.regionId}.json`, { extraction, rawText });
+                const { extraction, rawText } = await extractRegion(env, {
+                  jobId,
+                  mode: job.mode,
+                  region,
+                  llm: { provider: extractProvider, model: extractModel },
+                });
 
-            log.info("extract_region_done", {
-              regionId: region.regionId,
-              nodes: extraction.nodes.length,
-              confidence: extraction.confidence,
-            });
+                await putArtifactJson(env, jobId, `extractions/region_${region.regionId}.json`, { extraction, rawText });
 
-            return extraction.nodes.map((n) => ({ ...n, jobId }) as WbsNode);
-          } catch (err: any) {
-            console.log(err.name);
-            console.log(err.message);
-            console.log(err);
+                log.info("extract_region_done", {
+                  regionId: region.regionId,
+                  nodes: extraction.nodes.length,
+                  confidence: extraction.confidence,
+                });
 
-            if (err.name === 'AbortError') {
-              // Timeout (if using AbortController)
-              console.log('Request timed out');
-            } else if (err.name === 'TypeError' && err.message.includes('network')) {
-              // Connection drop / network failure
-              console.log('Network connection lost');
-            } else if (err.cause?.code === 'ECONNRESET') {
-              // Connection reset by server
-              console.log('Connection reset');
-            } else if (err.cause?.code === 'ETIMEDOUT') {
-              // TCP-level timeout
-              console.log('Connection timed out');
-            }
-            throw new NonRetryableError("Failed to extract region");
-          }
+                return extraction.nodes.map((n) => ({ ...n, jobId }) as WbsNode);
+              } catch (err: any) {
+                log.error("extract_region_error", {
+                  regionId: region.regionId,
+                  error: err.message,
+                });
+                throw err;
+              }
+            })
+          );
+
+          // Flatten results from all regions in this batch
+          return results.flat();
         });
 
-        extractedNodes.push(...nodes);
+        extractedNodes.push(...batchNodes);
       }
 
       // --- Step 05 validate ---

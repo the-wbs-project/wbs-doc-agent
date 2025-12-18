@@ -1,4 +1,5 @@
 import type { Region } from "../models/regions";
+import type { NormalizedDi } from "./diNormalizeService";
 import { uuid } from "./id";
 
 function estimateTokens(text: string) {
@@ -6,7 +7,7 @@ function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
-export function segmentDi(diNormalized: any): Region[] {
+export function segmentDi(diNormalized: NormalizedDi): Region[] {
   const regions: Region[] = [];
 
   const pages = diNormalized.pages ?? [];
