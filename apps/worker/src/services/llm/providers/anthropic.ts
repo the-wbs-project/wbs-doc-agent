@@ -17,7 +17,7 @@ export async function chatAnthropic(env: Env, cfg: LlmConfig, messages: LlmMessa
     },
     body: JSON.stringify({
       model: cfg.model,
-      max_tokens: cfg.maxTokens ?? 4096,
+      max_tokens: 64000,
       temperature: cfg.temperature ?? 0.2,
       system,
       messages: [{ role: "user", content: user }]

@@ -1,5 +1,5 @@
-import type { Region } from "../models/regions";
 import type { JobMode } from "../models/job";
+import type { Region } from "../models/regions";
 
 export const PROMPT_ID = "step04_extract_best_judgment_v1";
 

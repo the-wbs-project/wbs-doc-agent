@@ -14,6 +14,24 @@ export interface JobStatus {
   updatedAt: string;
 }
 
+export interface WbsNode {
+  jobId: string;
+  id: string;
+  parentId: string | null;
+  title: string;
+  description?: string | null;
+  wbsLevel?: string | null;
+  metadata: Array<{ key: string; value: string }>;
+  provenance: {
+    regionId: string;
+    pageOrSheet: string;
+    sourceType: 'table_cell' | 'paragraph_span' | 'unknown';
+    quote: string;
+  };
+  inferred?: boolean;
+  warnings?: string[];
+}
+
 export interface JobResult {
   jobId: string;
   mode: string;
@@ -23,7 +41,7 @@ export interface JobResult {
     inferredCount: number;
     coverageRatio: number;
   };
-  nodes: any[];
+  nodes: WbsNode[];
   artifacts: { r2Prefix: string };
 }
 

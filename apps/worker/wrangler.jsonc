@@ -38,7 +38,7 @@
 		"DI_MODEL": "prebuilt-layout",
 		"DI_BACKEND_VERSION": "v1",
 		"DI_CACHE_TTL_SECONDS": "604800",
-		"DI_CACHE_ENABLED": "true",
+		"DI_CACHE_ENABLED": "false",
 
 		"MONGO_DB": "wbs-agent-test",
 		"MONGO_COLL_JOBS": "jobs",

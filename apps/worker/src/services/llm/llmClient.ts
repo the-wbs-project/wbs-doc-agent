@@ -9,7 +9,6 @@ export type LlmConfig = {
   provider: "openai" | "anthropic" | "gemini";
   model: string;
   temperature?: number;
-  maxTokens?: number;
 };
 
 export async function generateJson<T>(env: Env, cfg: LlmConfig, messages: LlmMessage[]): Promise<{ json: T; rawText: string }> {
