@@ -17,11 +17,11 @@ Top-level JSON object:
 
 WbsNode JSON shape (flat):
 {
-  "id": string,
-  "parentId": string | null,
-  "title": string,
+  "id": string,              // The WBS level number ONLY (e.g., "1", "1.2", "2.2.1"). Do NOT include the title here.
+  "parentId": string | null, // The parent's id (WBS level), or null if root/unknown
+  "title": string,           // The task/item name ONLY, without the WBS number (e.g., "Columns", "Steel Erection")
   "description": string | null,
-  "wbsLevel": string | null,
+  "wbsLevel": string | null, // Same as id - the hierarchical WBS numbering (e.g., "2.2.1")
   "metadata": Array<{ "key": string, "value": string }>,
   "provenance": {
     "regionId": string,
@@ -76,6 +76,7 @@ OUTPUT REQUIREMENTS:
 ${JSON_SCHEMA_HINT}
 
 RULES:
+- IMPORTANT: The "id" field must contain ONLY the WBS level number (e.g., "2.2.1"), NOT the title. Split "2.2.1 Columns" into id="2.2.1" and title="Columns".
 - If you normalize title, add metadata {key:"original_text", value:"<original>"}.
 - If you infer parentId, set inferred=true and warning "inferred_parent_from_layout" or similar.
 - Always set provenance.regionId="${region.regionId}" and provenance.pageOrSheet="${region.pageOrSheet}".
