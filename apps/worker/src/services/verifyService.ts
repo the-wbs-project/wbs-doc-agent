@@ -47,7 +47,7 @@ export async function verifyDocument(env: Env, input: {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: 0.15,
-    maxTokens: 4096
+    maxTokens: 32000
   }, messages);
 
   return { out: json, rawText };

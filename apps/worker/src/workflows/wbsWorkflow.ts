@@ -16,6 +16,7 @@ import { validateNodes } from "../services/validateService";
 import { verifyDocument } from "../services/verifyService";
 import { appendStatus, setStatus } from "../status/statusClient";
 import { NonRetryableError } from "cloudflare:workflows";
+import { getModel } from "../services/llm/models";
 
 type Params = { jobId: string };
 
@@ -44,8 +45,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
         try {
           log.info("loading_job - starting step");
           const j = await repos.jobs.get(jobId);
-          //log.info("loaded_job", { mode: j.mode, r2UploadKey: j.r2UploadKey });
-          console.log(j);
+          log.info("loaded_job", { mode: j.mode, r2UploadKey: j.r2UploadKey });
           return j;
         }
         catch (error) {
@@ -53,7 +53,6 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
           throw new NonRetryableError("Job not found");
         }
       });
-      console.log(job);
 
       // --- Step 02: DI with cache ---
       await step.do("di-status-update", async () => {
@@ -79,108 +78,156 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       });
 
       const { diRaw, cacheHit } = await step.do("di-check-cache-and-call", async () => {
-        let diRaw: any = null;
-        let cacheHit = false;
+        try {
+          log.info("di-check-cache-and-call - starting step");
+          let diRaw: any = null;
+          let cacheHit = false;
 
-        if (cacheEnabled(env)) {
-          diRaw = await kvGetJson(env, ck);
-          cacheHit = !!diRaw;
-          log.info("di_cache_check", { cacheKey: ck, cacheHit });
+          if (cacheEnabled(env)) {
+            diRaw = await kvGetJson(env, ck);
+            cacheHit = !!diRaw;
+            log.info("di_cache_check", { cacheKey: ck, cacheHit });
+          }
+
+          if (!diRaw) {
+            await appendStatus(env, jobId, "info", "DI cache miss; fetching file from R2");
+            const fileObj = await getR2Object(env, job.r2UploadKey);
+            log.info("r2_file_fetched", { key: job.r2UploadKey });
+
+            await appendStatus(env, jobId, "info", "Calling DI backend");
+            const t0 = Date.now();
+            diRaw = await analyzeWithDiBackend(env, {
+              fileObj,
+              fileKey: job.r2UploadKey,
+            });
+            log.info("di_backend_done", { ms: Date.now() - t0 });
+          }
+
+          return { diRaw, cacheHit };
         }
-
-        if (!diRaw) {
-          await appendStatus(env, jobId, "info", "DI cache miss; fetching file from R2");
-          const fileObj = await getR2Object(env, job.r2UploadKey);
-          log.info("r2_file_fetched", { key: job.r2UploadKey });
-
-          await appendStatus(env, jobId, "info", "Calling DI backend");
-          const t0 = Date.now();
-          diRaw = await analyzeWithDiBackend(env, {
-            fileObj,
-            fileKey: job.r2UploadKey,
-          });
-          log.info("di_backend_done", { ms: Date.now() - t0 });
+        catch (error) {
+          log.error("di-check-cache-and-call - error", { error });
+          throw new NonRetryableError("Failed to check cache and call DI backend");
         }
-
-        return { diRaw, cacheHit };
       });
 
       // Store DI artifact
       await step.do("di-store-artifact", async () => {
-        if (cacheHit) {
-          await putArtifactJson(env, jobId, "di_cached.json", diRaw);
-          await repos.artifacts.record(jobId, "di_cached", `artifacts/${jobId}/di_cached.json`);
-        } else {
-          await putArtifactJson(env, jobId, "di_raw.json", diRaw);
-          await repos.artifacts.record(jobId, "di_raw", `artifacts/${jobId}/di_raw.json`);
-          if (cacheEnabled(env)) {
-            await kvPutJson(env, ck, diRaw, cacheTtl(env));
+        try {
+          log.info("di-store-artifact - starting step");
+          if (cacheHit) {
+            await putArtifactJson(env, jobId, "di_cached.json", diRaw);
+            await repos.artifacts.record(jobId, "di_cached", `artifacts/${jobId}/di_cached.json`);
+          } else {
+            await putArtifactJson(env, jobId, "di_raw.json", diRaw);
+            await repos.artifacts.record(jobId, "di_raw", `artifacts/${jobId}/di_raw.json`);
+            if (cacheEnabled(env)) {
+              await kvPutJson(env, ck, diRaw, cacheTtl(env));
+            }
           }
+        }
+        catch (error) {
+          log.error("di-store-artifact - error", { error });
+          throw new NonRetryableError("Failed to store DI artifact");
         }
       });
 
       // --- Step 03 normalize + segment ---
       const { diNormalized, regions } = await step.do("normalize-segment", async () => {
-        await setStatus(env, jobId, { step: "segment", percent: 20, message: "Normalizing and segmenting DI output" });
-        const diNormalized = normalizeDi(diRaw);
-        const regions = segmentDi(diNormalized);
-        await putArtifactJson(env, jobId, "di_normalized.json", diNormalized);
-        await putArtifactJson(env, jobId, "regions.json", regions);
-        return { diNormalized, regions };
+        try {
+          log.info("normalize-segment - starting step");
+          await setStatus(env, jobId, { step: "segment", percent: 20, message: "Normalizing and segmenting DI output" });
+          const diNormalized = normalizeDi(diRaw);
+          const regions = segmentDi(diNormalized);
+          await putArtifactJson(env, jobId, "di_normalized.json", diNormalized);
+          await putArtifactJson(env, jobId, "regions.json", regions);
+          return { diNormalized, regions };
+        }
+        catch (error) {
+          log.error("normalize-segment - error", { error });
+          throw new NonRetryableError("Failed to normalize and segment DI output");
+        }
       });
-
       // --- Step 04 extract ---
       const extractProvider = (job.options?.extractProvider ?? env.LLM_DEFAULT_EXTRACT_PROVIDER) as
         | "openai"
         | "anthropic"
         | "gemini";
-      const extractModel = (job.options?.extractModel ??
-        (extractProvider === "gemini" ? "gemini-3-flash-preview" : "gpt-4o-mini")) as string;
+      const extractModel = (job.options?.extractModel ?? getModel(extractProvider, 'small')) as string;
 
       const extractedNodes: WbsNode[] = [];
 
       await step.do("extract-status-update", async () => {
-        await setStatus(env, jobId, {
-          step: "extract_regions",
-          percent: 30,
-          message: `Extracting ${regions.length} regions`,
-        });
+        try {
+          log.info("extract-status-update - starting step");
+          await setStatus(env, jobId, {
+            step: "extract_regions",
+            percent: 30,
+            message: `Extracting ${regions.length} regions`,
+          });
+        }
+        catch (error) {
+          log.error("extract-status-update - error", { error });
+          throw new NonRetryableError("Failed to update extract status");
+        }
       });
 
       // Extract each region in sequence (each as its own step for retry granularity)
       for (let i = 0; i < regions.length; i++) {
         const region = regions[i];
         const nodes = await step.do(`extract-region-${region.regionId}`, async () => {
-          await setStatus(env, jobId, {
-            step: "extract_regions",
-            percent: 30 + Math.floor((25 * (i + 1)) / regions.length),
-            message: `Extracting region ${i + 1}/${regions.length}`,
-          });
+          try {
 
-          log.info("extract_region_start", {
-            regionId: region.regionId,
-            type: region.type,
-            tokenEstimate: region.tokenEstimate,
-            provider: extractProvider,
-            model: extractModel,
-          });
+            await setStatus(env, jobId, {
+              step: "extract_regions",
+              percent: 30 + Math.floor((25 * (i + 1)) / regions.length),
+              message: `Extracting region ${i + 1}/${regions.length}`,
+            });
 
-          const { extraction, rawText } = await extractRegion(env, {
-            jobId,
-            mode: job.mode,
-            region,
-            llm: { provider: extractProvider, model: extractModel },
-          });
+            log.info("extract_region_start", {
+              regionId: region.regionId,
+              type: region.type,
+              tokenEstimate: region.tokenEstimate,
+              provider: extractProvider,
+              model: extractModel,
+            });
 
-          await putArtifactJson(env, jobId, `extractions/region_${region.regionId}.json`, { extraction, rawText });
+            const { extraction, rawText } = await extractRegion(env, {
+              jobId,
+              mode: job.mode,
+              region,
+              llm: { provider: extractProvider, model: extractModel },
+            });
 
-          log.info("extract_region_done", {
-            regionId: region.regionId,
-            nodes: extraction.nodes.length,
-            confidence: extraction.confidence,
-          });
+            await putArtifactJson(env, jobId, `extractions/region_${region.regionId}.json`, { extraction, rawText });
 
-          return extraction.nodes.map((n) => ({ ...n, jobId }) as WbsNode);
+            log.info("extract_region_done", {
+              regionId: region.regionId,
+              nodes: extraction.nodes.length,
+              confidence: extraction.confidence,
+            });
+
+            return extraction.nodes.map((n) => ({ ...n, jobId }) as WbsNode);
+          } catch (err: any) {
+            console.log(err.name);
+            console.log(err.message);
+            console.log(err);
+
+            if (err.name === 'AbortError') {
+              // Timeout (if using AbortController)
+              console.log('Request timed out');
+            } else if (err.name === 'TypeError' && err.message.includes('network')) {
+              // Connection drop / network failure
+              console.log('Network connection lost');
+            } else if (err.cause?.code === 'ECONNRESET') {
+              // Connection reset by server
+              console.log('Connection reset');
+            } else if (err.cause?.code === 'ETIMEDOUT') {
+              // TCP-level timeout
+              console.log('Connection timed out');
+            }
+            throw new NonRetryableError("Failed to extract region");
+          }
         });
 
         extractedNodes.push(...nodes);
@@ -188,18 +235,32 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
 
       // --- Step 05 validate ---
       const validationReport = await step.do("validate", async () => {
-        await setStatus(env, jobId, { step: "validate", percent: 60, message: "Validating and generating QC report" });
-        const report = validateNodes(jobId, extractedNodes, regions);
-        await putArtifactJson(env, jobId, "validation_report.json", report);
-        return report;
+        try {
+          log.info("validate - starting step");
+          await setStatus(env, jobId, { step: "validate", percent: 60, message: "Validating and generating QC report" });
+          const report = validateNodes(jobId, extractedNodes, regions);
+          await putArtifactJson(env, jobId, "validation_report.json", report);
+          return report;
+        }
+        catch (error) {
+          log.error("validate - error", { error });
+          throw new NonRetryableError("Failed to validate nodes");
+        }
       });
 
       // --- Step 06 consolidate ---
       const draftNodes = await step.do("consolidate", async () => {
-        await setStatus(env, jobId, { step: "consolidate", percent: 65, message: "Consolidating nodes" });
-        const draft = consolidate(extractedNodes, job.mode);
-        await putArtifactJson(env, jobId, "document_draft.json", draft);
-        return draft;
+        try {
+          log.info("consolidate - starting step");
+          await setStatus(env, jobId, { step: "consolidate", percent: 65, message: "Consolidating nodes" });
+          const draft = consolidate(extractedNodes, job.mode);
+          await putArtifactJson(env, jobId, "document_draft.json", draft);
+          return draft;
+        }
+        catch (error) {
+          log.error("consolidate - error", { error });
+          throw new NonRetryableError("Failed to consolidate nodes");
+        }
       });
 
       // --- Step 07 verify ---
@@ -207,8 +268,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
         | "openai"
         | "anthropic"
         | "gemini";
-      const verifyModel = (job.options?.verifyModel ??
-        (verifyProvider === "anthropic" ? "claude-3-5-sonnet-latest" : "gpt-4o")) as string;
+      const verifyModel = (job.options?.verifyModel ?? getModel(verifyProvider, 'large')) as string;
 
       const verifyOut = await step.do("verify", async () => {
         await setStatus(env, jobId, { step: "verify", percent: 75, message: "Verifying document" });
@@ -246,9 +306,9 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
             targetRegionIds: targets,
             regions,
             extractCandidates: [
-              { name: "openai_candidate", provider: "openai", model: "gpt-4o-mini" },
-              { name: "anthropic_candidate", provider: "anthropic", model: "claude-3-5-haiku-latest" },
-              { name: "gemini_candidate", provider: "gemini", model: "gemini-3-flash-preview" },
+              { name: "openai_candidate", provider: "openai", model: getModel("openai", 'small') },
+              { name: "anthropic_candidate", provider: "anthropic", model: getModel("anthropic", 'small') },
+              { name: "gemini_candidate", provider: "gemini", model: getModel("gemini", 'small') },
             ],
             judge: { provider: verifyProvider, model: verifyModel },
           });
@@ -280,7 +340,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
         | "openai"
         | "anthropic"
         | "gemini";
-      const summaryModel = (job.options?.summaryModel ?? (summaryProvider === "openai" ? "gpt-4o-mini" : verifyModel)) as string;
+      const summaryModel = (job.options?.summaryModel ?? getModel(summaryProvider, 'small')) as string;
 
       await step.do("generate-summary", async () => {
         await setStatus(env, jobId, { step: "summary", percent: 96, message: "Generating summary" });

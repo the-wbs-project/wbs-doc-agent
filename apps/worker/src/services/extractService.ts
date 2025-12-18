@@ -39,7 +39,7 @@ export async function extractRegion(env: Env, input: {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: input.mode === "strict" ? 0.2 : 0.35,
-    maxTokens: 32000
+    maxTokens: 60000
   }, messages);
 
   // Ensure IDs exist; if model forgot, assign

@@ -45,7 +45,7 @@
 		"MONGO_COLL_NODES": "wbs_nodes",
 		"MONGO_COLL_ARTIFACTS": "job_artifacts",
 
-		"LLM_DEFAULT_EXTRACT_PROVIDER": "gemini",
+		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai",
 		"LLM_DEFAULT_VERIFY_PROVIDER": "anthropic",
 		"LLM_DEFAULT_JUDGE_PROVIDER": "anthropic",
 		"LLM_DEFAULT_SUMMARY_PROVIDER": "openai",
