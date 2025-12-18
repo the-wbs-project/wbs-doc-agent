@@ -1,6 +1,27 @@
-import { nowIso } from "../../time";
-import { mongoDataApi } from "../mongoDataApiClient";
+import type { Collection, Db } from "mongodb";
 
-export async function recordArtifact(env: Env, jobId: string, artifactKey: string, r2Key: string, meta: any = {}) {
-  await mongoDataApi.insertOne(env, env.MONGO_COLL_ARTIFACTS, { jobId, artifactKey, r2Key, meta, createdAt: nowIso() });
+interface Artifact {
+  jobId: string;
+  artifactKey: string;
+  r2Key: string;
+  meta: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export class ArtifactsRepository {
+  private collection: Collection<Artifact>;
+
+  constructor(db: Db, collectionName: string) {
+    this.collection = db.collection<Artifact>(collectionName);
+  }
+
+  async record(jobId: string, artifactKey: string, r2Key: string, meta: Record<string, unknown> = {}) {
+    await this.collection.insertOne({
+      jobId,
+      artifactKey,
+      r2Key,
+      meta,
+      createdAt: new Date(),
+    });
+  }
 }

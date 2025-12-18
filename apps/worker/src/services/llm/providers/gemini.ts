@@ -7,7 +7,9 @@ export async function chatGemini(env: Env, cfg: LlmConfig, messages: LlmMessage[
   const system = messages.find(m => m.role === "system")?.content ?? "";
   const user = messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
 
-  const res = await fetch(`https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/google-ai-studio/v1/models/${cfg.model}:generateContent?key=${env.GEMINI_API_KEY}`, {
+  const version = cfg.model.includes("preview") ? "v1beta" : "v1";
+  console.log(cfg.maxTokens);
+  const res = await fetch(`https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/google-ai-studio/${version}/models/${cfg.model}:generateContent?key=${env.GEMINI_API_KEY}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -15,7 +17,7 @@ export async function chatGemini(env: Env, cfg: LlmConfig, messages: LlmMessage[
     },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: system + "\n\n" + user }] }],
-      generationConfig: { temperature: cfg.temperature ?? 0.2 }
+      generationConfig: { temperature: cfg.temperature ?? 0.2, maxOutputTokens: cfg.maxTokens ?? 4096 }
     })
   });
 

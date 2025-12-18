@@ -1,25 +1,44 @@
+import { ObjectId, type Collection, type Db, type Filter } from "mongodb";
 import type { JobRecord } from "../../../models/job";
-import { nowIso } from "../../time";
-import { mongoDataApi } from "../mongoDataApiClient";
 
-export async function createJob(env: Env, job: JobRecord) {
-  await mongoDataApi.insertOne(env, env.MONGO_COLL_JOBS, job);
-}
+export class JobsRepository {
+  private collection: Collection<JobRecord>;
 
-export async function getJob(env: Env, jobId: string): Promise<JobRecord> {
-  const r = await mongoDataApi.findOne(env, env.MONGO_COLL_JOBS, { jobId }) as { document: JobRecord | null };
-  if (!r.document) throw new Error(`Job not found: ${jobId}`);
-  return r.document;
-}
+  constructor(db: Db, collectionName: string) {
+    this.collection = db.collection<JobRecord>(collectionName);
+  }
 
-export async function markRunning(env: Env, jobId: string) {
-  await mongoDataApi.updateOne(env, env.MONGO_COLL_JOBS, { jobId }, { "$set": { state: "running", updatedAt: nowIso() } });
-}
+  async create(job: JobRecord) {
+    await this.collection.insertOne({ ...job, _id: new ObjectId(job.jobId) });
+  }
 
-export async function markFailed(env: Env, jobId: string, error: string) {
-  await mongoDataApi.updateOne(env, env.MONGO_COLL_JOBS, { jobId }, { "$set": { state: "failed", updatedAt: nowIso(), error } });
-}
+  async get(jobId: string): Promise<JobRecord> {
+    const doc = await this.collection.findOne({ _id: new ObjectId(jobId) }) as JobRecord & { _id?: ObjectId };
+    if (!doc) throw new Error(`Job not found: ${jobId}`);
 
-export async function markCompleted(env: Env, jobId: string, patch: Partial<JobRecord>) {
-  await mongoDataApi.updateOne(env, env.MONGO_COLL_JOBS, { jobId }, { "$set": { ...patch, state: "completed", updatedAt: nowIso() } });
+    delete doc._id;
+
+    return doc;
+  }
+
+  async markRunning(jobId: string) {
+    await this.collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { state: "running", updatedAt: new Date().toISOString() } }
+    );
+  }
+
+  async markFailed(jobId: string, error: string) {
+    await this.collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { state: "failed", updatedAt: new Date().toISOString(), error } }
+    );
+  }
+
+  async markCompleted(jobId: string, patch: Partial<JobRecord>) {
+    await this.collection.updateOne(
+      { _id: new ObjectId(jobId) },
+      { $set: { ...patch, state: "completed", updatedAt: new Date().toISOString() } }
+    );
+  }
 }

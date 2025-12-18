@@ -14,7 +14,7 @@ If verifier requests escalation, re-extract targeted regions using 3 diverse LLM
 - Extract candidates (hardcoded diverse set):
   - OpenAI `gpt-4o-mini`
   - Anthropic `claude-3-5-haiku-latest`
-  - Gemini `gemini-1.5-flash`
+  - Gemini `gemini-3-flash-preview`
 - Judge: Same provider/model as verifier
 
 ## Processing (`escalateService.ts`)

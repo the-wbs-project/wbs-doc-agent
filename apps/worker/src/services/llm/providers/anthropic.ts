@@ -11,12 +11,13 @@ export async function chatAnthropic(env: Env, cfg: LlmConfig, messages: LlmMessa
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-api-key": env.ANTHROPIC_API_KEY,
       "cf-aig-authorization": `Bearer ${env.CF_GATEWAY_KEY}`,
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
       model: cfg.model,
-      max_tokens: cfg.maxTokens ?? 2048,
+      max_tokens: cfg.maxTokens ?? 4096,
       temperature: cfg.temperature ?? 0.2,
       system,
       messages: [{ role: "user", content: user }]

@@ -5,9 +5,9 @@ export type LogContext = Record<string, unknown>;
 export function createLogger(base: LogContext = {}) {
   const log = (level: Level, msg: string, data: LogContext = {}) => {
     const line = {
+      msg,
       ts: new Date().toISOString(),
       level,
-      msg,
       ...base,
       ...data
     };

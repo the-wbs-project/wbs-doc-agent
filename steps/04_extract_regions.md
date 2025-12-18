@@ -81,7 +81,7 @@ Iterates sequentially through regions:
 
 ## Logging
 ```json
-{"ts":"...","level":"info","msg":"extract_region_start","jobId":"...","regionId":"...","type":"table","tokenEstimate":500,"provider":"gemini","model":"gemini-1.5-flash"}
+{"ts":"...","level":"info","msg":"extract_region_start","jobId":"...","regionId":"...","type":"table","tokenEstimate":500,"provider":"gemini","model":"gemini-3-flash-preview"}
 {"ts":"...","level":"info","msg":"extract_region_done","jobId":"...","regionId":"...","nodes":5,"confidence":0.85}
 ```
 

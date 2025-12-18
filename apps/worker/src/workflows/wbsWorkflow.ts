@@ -8,44 +8,75 @@ import { escalateAndJudge } from "../services/escalateService";
 import { extractRegion } from "../services/extractService";
 import { cacheEnabled, cacheTtl, diCacheKey, kvGetJson, kvPutJson } from "../services/kvCacheService";
 import { createLogger } from "../services/logger";
-import * as artifactsRepo from "../services/mongo/repositories/artifactsRepo";
-import * as jobsRepo from "../services/mongo/repositories/jobsRepo";
-import * as nodesRepo from "../services/mongo/repositories/nodesRepo";
+import { Repositories } from "../services/mongo/repositories";
 import { getR2Object } from "../services/r2Service";
 import { segmentDi } from "../services/segmentService";
 import { generateSummary } from "../services/summaryService";
 import { validateNodes } from "../services/validateService";
 import { verifyDocument } from "../services/verifyService";
 import { appendStatus, setStatus } from "../status/statusClient";
+import { NonRetryableError } from "cloudflare:workflows";
 
 type Params = { jobId: string };
 
 export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
+    console.log("RUNNING!");
     const { jobId } = event.payload;
     const log = createLogger({ jobId, scope: "workflow" });
     const env = this.env;
+    const repos = await Repositories.create(env);
 
     try {
       // Mark job running
       await step.do("mark-running", async () => {
-        await jobsRepo.markRunning(env, jobId);
+        log.info("marking_running - starting step");
+
+        await repos.jobs.markRunning(jobId);
+
         await setStatus(env, jobId, { state: "running", step: "start", percent: 2, message: "Workflow started" });
+
+        log.info("marking_running - completed step");
       });
 
       // Load job record
       const job = await step.do("load-job", async () => {
-        const j = await jobsRepo.getJob(env, jobId);
-        log.info("loaded_job", { mode: j.mode, r2UploadKey: j.r2UploadKey });
-        return j;
+        try {
+          log.info("loading_job - starting step");
+          const j = await repos.jobs.get(jobId);
+          //log.info("loaded_job", { mode: j.mode, r2UploadKey: j.r2UploadKey });
+          console.log(j);
+          return j;
+        }
+        catch (error) {
+          log.error("loading_job - error", { error });
+          throw new NonRetryableError("Job not found");
+        }
       });
+      console.log(job);
 
       // --- Step 02: DI with cache ---
       await step.do("di-status-update", async () => {
-        await setStatus(env, jobId, { step: "di", percent: 8, message: "Checking DI cache" });
+        try {
+          log.info("di-status-update - starting step");
+          await setStatus(env, jobId, { step: "di", percent: 8, message: "Checking DI cache" });
+        }
+        catch (error) {
+          log.error("di-status-update - error", { error });
+          throw new NonRetryableError("Failed to update DI status");
+        }
       });
 
-      const ck = diCacheKey(job.fileHashSha256, env.DI_MODEL, env.DI_BACKEND_VERSION);
+      const ck = await step.do('build-cache-key', async () => {
+        try {
+          log.info("build-cache-key - starting step");
+          return diCacheKey(job.fileHashSha256, env.DI_MODEL, env.DI_BACKEND_VERSION);
+        }
+        catch (error) {
+          log.error("build-cache-key - error", { error });
+          throw new NonRetryableError("Failed to build cache key");
+        }
+      });
 
       const { diRaw, cacheHit } = await step.do("di-check-cache-and-call", async () => {
         let diRaw: any = null;
@@ -78,10 +109,10 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       await step.do("di-store-artifact", async () => {
         if (cacheHit) {
           await putArtifactJson(env, jobId, "di_cached.json", diRaw);
-          await artifactsRepo.recordArtifact(env, jobId, "di_cached", `artifacts/${jobId}/di_cached.json`);
+          await repos.artifacts.record(jobId, "di_cached", `artifacts/${jobId}/di_cached.json`);
         } else {
           await putArtifactJson(env, jobId, "di_raw.json", diRaw);
-          await artifactsRepo.recordArtifact(env, jobId, "di_raw", `artifacts/${jobId}/di_raw.json`);
+          await repos.artifacts.record(jobId, "di_raw", `artifacts/${jobId}/di_raw.json`);
           if (cacheEnabled(env)) {
             await kvPutJson(env, ck, diRaw, cacheTtl(env));
           }
@@ -99,13 +130,21 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       });
 
       // --- Step 04 extract ---
-      const extractProvider = (job.options?.extractProvider ?? env.LLM_DEFAULT_EXTRACT_PROVIDER) as "openai" | "anthropic" | "gemini";
-      const extractModel = (job.options?.extractModel ?? (extractProvider === "gemini" ? "gemini-1.5-flash" : "gpt-4o-mini")) as string;
+      const extractProvider = (job.options?.extractProvider ?? env.LLM_DEFAULT_EXTRACT_PROVIDER) as
+        | "openai"
+        | "anthropic"
+        | "gemini";
+      const extractModel = (job.options?.extractModel ??
+        (extractProvider === "gemini" ? "gemini-3-flash-preview" : "gpt-4o-mini")) as string;
 
       const extractedNodes: WbsNode[] = [];
 
       await step.do("extract-status-update", async () => {
-        await setStatus(env, jobId, { step: "extract_regions", percent: 30, message: `Extracting ${regions.length} regions` });
+        await setStatus(env, jobId, {
+          step: "extract_regions",
+          percent: 30,
+          message: `Extracting ${regions.length} regions`,
+        });
       });
 
       // Extract each region in sequence (each as its own step for retry granularity)
@@ -115,7 +154,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
           await setStatus(env, jobId, {
             step: "extract_regions",
             percent: 30 + Math.floor((25 * (i + 1)) / regions.length),
-            message: `Extracting region ${i + 1}/${regions.length}`
+            message: `Extracting region ${i + 1}/${regions.length}`,
           });
 
           log.info("extract_region_start", {
@@ -123,14 +162,14 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
             type: region.type,
             tokenEstimate: region.tokenEstimate,
             provider: extractProvider,
-            model: extractModel
+            model: extractModel,
           });
 
           const { extraction, rawText } = await extractRegion(env, {
             jobId,
             mode: job.mode,
             region,
-            llm: { provider: extractProvider, model: extractModel }
+            llm: { provider: extractProvider, model: extractModel },
           });
 
           await putArtifactJson(env, jobId, `extractions/region_${region.regionId}.json`, { extraction, rawText });
@@ -138,10 +177,10 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
           log.info("extract_region_done", {
             regionId: region.regionId,
             nodes: extraction.nodes.length,
-            confidence: extraction.confidence
+            confidence: extraction.confidence,
           });
 
-          return extraction.nodes.map(n => ({ ...n, jobId } as WbsNode));
+          return extraction.nodes.map((n) => ({ ...n, jobId }) as WbsNode);
         });
 
         extractedNodes.push(...nodes);
@@ -164,8 +203,12 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       });
 
       // --- Step 07 verify ---
-      const verifyProvider = (job.options?.verifyProvider ?? env.LLM_DEFAULT_VERIFY_PROVIDER) as "openai" | "anthropic" | "gemini";
-      const verifyModel = (job.options?.verifyModel ?? (verifyProvider === "anthropic" ? "claude-3-5-sonnet-latest" : "gpt-4o")) as string;
+      const verifyProvider = (job.options?.verifyProvider ?? env.LLM_DEFAULT_VERIFY_PROVIDER) as
+        | "openai"
+        | "anthropic"
+        | "gemini";
+      const verifyModel = (job.options?.verifyModel ??
+        (verifyProvider === "anthropic" ? "claude-3-5-sonnet-latest" : "gpt-4o")) as string;
 
       const verifyOut = await step.do("verify", async () => {
         await setStatus(env, jobId, { step: "verify", percent: 75, message: "Verifying document" });
@@ -176,7 +219,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
           nodes: draftNodes,
           validationReport,
           regions,
-          llm: { provider: verifyProvider, model: verifyModel }
+          llm: { provider: verifyProvider, model: verifyModel },
         });
 
         await putArtifactJson(env, jobId, "verifier_output.json", { verifyOut: out, verifyRaw: rawText });
@@ -188,7 +231,11 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       // --- Step 08 escalate if needed ---
       if (verifyOut.escalationPlan?.needed) {
         finalNodes = await step.do("escalate", async () => {
-          await setStatus(env, jobId, { step: "escalate", percent: 82, message: "Escalation required; re-extracting targeted regions" });
+          await setStatus(env, jobId, {
+            step: "escalate",
+            percent: 82,
+            message: "Escalation required; re-extracting targeted regions",
+          });
 
           const targets = verifyOut.escalationPlan.targetRegionIds ?? [];
           log.warn("escalation_needed", { targets, reason: verifyOut.escalationPlan.reason });
@@ -201,14 +248,14 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
             extractCandidates: [
               { name: "openai_candidate", provider: "openai", model: "gpt-4o-mini" },
               { name: "anthropic_candidate", provider: "anthropic", model: "claude-3-5-haiku-latest" },
-              { name: "gemini_candidate", provider: "gemini", model: "gemini-1.5-flash" }
+              { name: "gemini_candidate", provider: "gemini", model: "gemini-3-flash-preview" },
             ],
-            judge: { provider: verifyProvider, model: verifyModel }
+            judge: { provider: verifyProvider, model: verifyModel },
           });
 
           // Patch strategy: replace nodes for affected regions by provenance.regionId match
           const targetSet = new Set(targets);
-          let result = verifyOut.correctedNodes.filter(n => !targetSet.has(n.provenance?.regionId));
+          let result = verifyOut.correctedNodes.filter((n) => !targetSet.has(n.provenance?.regionId));
 
           for (const regionId of Object.keys(patches)) {
             result.push(...patches[regionId]);
@@ -226,10 +273,13 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       // --- Step 09 persist + summary ---
       await step.do("persist-nodes", async () => {
         await setStatus(env, jobId, { step: "persist", percent: 92, message: "Persisting nodes to MongoDB" });
-        await nodesRepo.replaceNodesForJob(env, jobId, finalNodes);
+        await repos.nodes.replaceForJob(jobId, finalNodes);
       });
 
-      const summaryProvider = (job.options?.summaryProvider ?? env.LLM_DEFAULT_SUMMARY_PROVIDER) as "openai" | "anthropic" | "gemini";
+      const summaryProvider = (job.options?.summaryProvider ?? env.LLM_DEFAULT_SUMMARY_PROVIDER) as
+        | "openai"
+        | "anthropic"
+        | "gemini";
       const summaryModel = (job.options?.summaryModel ?? (summaryProvider === "openai" ? "gpt-4o-mini" : verifyModel)) as string;
 
       await step.do("generate-summary", async () => {
@@ -241,7 +291,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
           nodes: finalNodes,
           validationReport,
           verifierIssues: verifyOut.issues ?? [],
-          llm: { provider: summaryProvider, model: summaryModel }
+          llm: { provider: summaryProvider, model: summaryModel },
         });
 
         await putArtifactJson(env, jobId, "summary.json", { summary, summaryRaw: rawText });
@@ -249,19 +299,20 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
 
       // Mark completed
       await step.do("mark-completed", async () => {
-        const inferredCount = finalNodes.filter(n => !!n.inferred).length;
+        const inferredCount = finalNodes.filter((n) => !!n.inferred).length;
 
-        await jobsRepo.markCompleted(env, jobId, {
+        await repos.jobs.markCompleted(jobId, {
           nodeCount: finalNodes.length,
           inferredCount,
-          coverageRatio: validationReport.coverage.coverageRatio
+          coverageRatio: validationReport.coverage.coverageRatio,
         } as any);
 
         await setStatus(env, jobId, { state: "completed", step: "done", percent: 100, message: "Completed" });
         log.info("workflow_completed", { nodes: finalNodes.length, inferredCount });
       });
-
     } catch (err: any) {
+      console.log("IN FAILED STATE!");
+
       const msg = err?.message ?? String(err);
       console.log(JSON.stringify({ ts: new Date().toISOString(), level: "error", jobId, msg, stack: err?.stack }));
 
@@ -269,7 +320,11 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       await setStatus(env, jobId, { state: "failed", step: "failed", percent: 100, message: "Failed" });
 
       // best-effort mark in mongo
-      try { await jobsRepo.markFailed(env, jobId, msg); } catch { /* ignore */ }
+      try {
+        await repos.jobs.markFailed(jobId, msg);
+      } catch {
+        /* ignore */
+      }
       throw err;
     }
   }
