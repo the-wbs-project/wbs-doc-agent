@@ -1,18 +1,19 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
+import type { Logger } from "../../services/logger";
 import { setStatus } from "../../status/statusClient";
 
-export async function diStatusUpdate(ctx: WbsWorkflowContext) {
+export async function diStatusUpdate(ctx: WbsWorkflowContext, env: Env, logger: Logger): Promise<void> {
     try {
-        ctx.logger.info("di-status-update - starting");
+        logger.info("di-status-update - starting");
 
-        await setStatus(ctx, { step: "di", percent: 8, message: "Checking DI cache" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "di", percent: 8, message: "Checking DI cache" });
 
-        ctx.logger.info("di-status-update - done");
+        logger.info("di-status-update - done");
     }
-    catch (error) {
-        ctx.logger.error("di-status-update - error", { error });
+    catch (error: any) {
+        logger.exception("di-status-update - error", error);
 
-        throw new NonRetryableError("Failed to update DI status");
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

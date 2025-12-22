@@ -1,6 +1,7 @@
+import type { SiteConfig } from "../../../models/site-config";
 import type { LlmConfig, LlmMessage } from "../llmClient";
 
-export async function chatGemini(env: Env, cfg: LlmConfig, messages: LlmMessage[]) {
+export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]) {
 
   // Use Google Generative Language API (Gemini) style.
   // This is a placeholder; adjust endpoint/model naming as needed.
@@ -8,11 +9,11 @@ export async function chatGemini(env: Env, cfg: LlmConfig, messages: LlmMessage[
   const user = messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
 
   const version = cfg.model.includes("preview") ? "v1beta" : "v1";
-  const res = await fetch(`https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/google-ai-studio/${version}/models/${cfg.model}:generateContent?key=${env.GEMINI_API_KEY}`, {
+  const res = await fetch(`https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/google-ai-studio/${version}/models/${cfg.model}:generateContent?key=${siteConfig.ai.geminiKey}`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "cf-aig-authorization": `Bearer ${env.CF_GATEWAY_KEY}`
+      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`
     },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: system + "\n\n" + user }] }],

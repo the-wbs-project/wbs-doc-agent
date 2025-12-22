@@ -1,20 +1,22 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
+import type { Logger } from "../../services/logger";
+import type { Repositories } from "../../services/mongo/repositories";
 import { setStatus } from "../../status/statusClient";
 
-export async function persistNodesStep(ctx: WbsWorkflowContext, finalNodes: WbsNode[]) {
+export async function persistNodesStep(ctx: WbsWorkflowContext, env: Env, finalNodes: WbsNode[], logger: Logger, repos: Repositories) {
     try {
-        ctx.logger.info("persist-nodes - starting");
+        logger.info("persist-nodes - starting");
 
-        await setStatus(ctx, { step: "persist", percent: 92, message: "Persisting nodes to MongoDB" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "persist", percent: 92, message: "Persisting nodes to MongoDB" });
 
-        await ctx.repos.nodes.replaceForJob(ctx.jobId, finalNodes);
+        await repos.nodes.replaceForJob(ctx.job.jobId, finalNodes);
 
-        ctx.logger.info("persist-nodes - done");
+        logger.info("persist-nodes - done");
     }
-    catch (error) {
-        ctx.logger.error("persist-nodes - error", { error });
-        throw new NonRetryableError("Failed to persist nodes");
+    catch (error: any) {
+        logger.exception("persist-nodes - error", error);
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

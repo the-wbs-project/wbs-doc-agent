@@ -1,20 +1,23 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
+import type { Logger } from "../../services/logger";
+import type { Repositories } from "../../services/mongo/repositories";
 import { setStatus } from "../../status/statusClient";
 
-export async function markRunning(ctx: WbsWorkflowContext) {
+export async function markRunning(ctx: WbsWorkflowContext, env: Env, logger: Logger, repos: Repositories) {
     try {
-        ctx.logger.info("mark-running - starting");
+        console.log('hi again');
+        logger.info("mark-running - starting");
 
-        await ctx.repos.jobs.markRunning(ctx.jobId);
+        await repos.jobs.markRunning(ctx.job.jobId);
 
-        await setStatus(ctx, { state: "running", step: "start", percent: 2, message: "Workflow started" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { state: "running", step: "start", percent: 2, message: "Workflow started" });
 
-        ctx.logger.info("mark-running - done");
+        logger.info("mark-running - done");
     }
-    catch (error) {
-        ctx.logger.error("mark-running - error", { error });
+    catch (error: any) {
+        logger.exception("mark-running - error", error);
 
-        throw new NonRetryableError("Failed to mark job as running");
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

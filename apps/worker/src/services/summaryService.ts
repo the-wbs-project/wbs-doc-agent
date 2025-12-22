@@ -15,7 +15,7 @@ export async function generateSummary(ctx: WbsWorkflowContext, input: {
     { role: "user" as const, content: summaryPrompt.buildUserPrompt(ctx.job.jobId, ctx.job.mode, input) }
   ];
 
-  const { json, rawText } = await generateJson<{ summary: string; highlights: string[]; qcNotes: string[] }>(ctx.env, {
+  const { json, rawText } = await generateJson<{ summary: string; highlights: string[]; qcNotes: string[] }>(ctx, {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: 0.3,

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Injectable, inject } from '@angular/core';
+import type { Observable } from 'rxjs';
+import { EnvironmentService } from './environment.service';
 
 export type JobState = 'queued' | 'running' | 'completed' | 'failed';
 
@@ -52,20 +53,25 @@ export interface UploadResponse {
 @Injectable({ providedIn: 'root' })
 export class JobsService {
   private http = inject(HttpClient);
+  private envService = inject(EnvironmentService);
+
+  private get apiUrl(): string {
+    return this.envService.apiUrl;
+  }
 
   uploadFile(file: File, mode: 'strict' | 'best_judgment' = 'strict'): Observable<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', mode);
-    return this.http.post<UploadResponse>('/api/jobs', formData);
+    return this.http.post<UploadResponse>(`${this.apiUrl}/api/jobs`, formData);
   }
 
   getStatus(jobId: string): Observable<JobStatus> {
-    return this.http.get<JobStatus>(`/api/jobs/${jobId}/status`);
+    return this.http.get<JobStatus>(`${this.apiUrl}/api/jobs/${jobId}/status`);
   }
 
   getResult(jobId: string): Observable<JobResult> {
-    return this.http.get<JobResult>(`/api/jobs/${jobId}/result`);
+    return this.http.get<JobResult>(`${this.apiUrl}/api/jobs/${jobId}/result`);
   }
 }
 

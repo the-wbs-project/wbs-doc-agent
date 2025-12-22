@@ -1,8 +1,7 @@
+import type { SiteConfig } from "../../../models/site-config";
 import type { LlmConfig, LlmMessage } from "../llmClient";
 
-export async function chatAnthropic(env: Env, cfg: LlmConfig, messages: LlmMessage[]) {
-  if (!env.ANTHROPIC_API_KEY) throw new Error("Missing ANTHROPIC_API_KEY");
-
+export async function chatAnthropic(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]) {
   // Convert system+user into Anthropic messages
   const system = messages.find(m => m.role === "system")?.content ?? "";
   const user = messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
@@ -11,8 +10,8 @@ export async function chatAnthropic(env: Env, cfg: LlmConfig, messages: LlmMessa
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "cf-aig-authorization": `Bearer ${env.CF_GATEWAY_KEY}`,
+      "x-api-key": siteConfig.ai.anthropicKey,
+      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({

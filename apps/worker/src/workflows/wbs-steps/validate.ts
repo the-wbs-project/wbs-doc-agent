@@ -4,25 +4,27 @@ import type { Region } from "../../models/regions";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
+import type { Logger } from "../../services/logger";
 import { validateNodes } from "../../services/validateService";
 import { setStatus } from "../../status/statusClient";
 
-export async function validateStep(ctx: WbsWorkflowContext, extractedNodes: WbsNode[], regions: Region[]): Promise<ValidationReport> {
+export async function validateStep(ctx: WbsWorkflowContext, env: Env, extractedNodes: WbsNode[], regions: Region[], logger: Logger): Promise<ValidationReport> {
     try {
-        ctx.logger.info("validate - starting");
+        logger.info("validate - starting");
 
-        await setStatus(ctx, { step: "validate", percent: 60, message: "Validating and generating QC report" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "validate", percent: 60, message: "Validating and generating QC report" });
 
-        const report = validateNodes(ctx.job.jobId, extractedNodes, regions);
+        const report = validateNodes(extractedNodes, regions);
 
-        await putArtifactJson(ctx, "validation_report.json", report);
+        await putArtifactJson(ctx, env.UPLOADS_R2, "validation_report.json", report);
 
-        ctx.logger.info("validate - done");
+        logger.info("validate - done");
 
         return report;
     }
-    catch (error) {
-        ctx.logger.error("validate - error", { error });
-        throw new NonRetryableError("Failed to validate nodes");
+    catch (error: any) {
+        logger.exception("validate - error", error);
+
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

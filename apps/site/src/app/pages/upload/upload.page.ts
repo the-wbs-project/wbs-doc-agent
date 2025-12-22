@@ -1,19 +1,41 @@
 import { Component, inject, signal, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
+import { ButtonModule, RadioButtonModule } from '@syncfusion/ej2-angular-buttons';
+import type { ChangeArgs } from '@syncfusion/ej2-angular-buttons';
 import { DropDownListModule } from '@syncfusion/ej2-angular-dropdowns';
 import { UploaderModule } from '@syncfusion/ej2-angular-inputs';
 import type { SelectedEventArgs, UploaderComponent } from '@syncfusion/ej2-angular-inputs';
 import type { ChangeEventArgs } from '@syncfusion/ej2-angular-dropdowns';
+import { EnvironmentService, type ApiEnvironment } from '../../services/environment.service';
 import { JobsService } from '../../services/jobs.service';
 
 @Component({
   selector: 'app-upload',
-  imports: [UploaderModule, DropDownListModule, ButtonModule],
+  imports: [UploaderModule, DropDownListModule, ButtonModule, RadioButtonModule],
   template: `
     <div class="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-4">
       <div class="w-full max-w-lg">
         <h1 class="text-2xl font-semibold mb-6 text-center">WBS Document Agent</h1>
+
+        <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-4">
+          <label class="block text-sm text-gray-600 mb-3">API Environment</label>
+          <div class="flex gap-6">
+            <ejs-radiobutton
+              label="Local"
+              name="environment"
+              value="local"
+              [checked]="envService.environment() === 'local'"
+              (change)="onEnvironmentChange($event)"
+            ></ejs-radiobutton>
+            <ejs-radiobutton
+              label="Production"
+              name="environment"
+              value="production"
+              [checked]="envService.environment() === 'production'"
+              (change)="onEnvironmentChange($event)"
+            ></ejs-radiobutton>
+          </div>
+        </div>
 
         <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
           <ejs-uploader
@@ -86,6 +108,7 @@ import { JobsService } from '../../services/jobs.service';
 export class UploadPage {
   @ViewChild('uploader') uploader!: UploaderComponent;
 
+  envService = inject(EnvironmentService);
   private jobsService = inject(JobsService);
   private router = inject(Router);
 
@@ -113,6 +136,12 @@ export class UploadPage {
 
   onModeChange(event: ChangeEventArgs) {
     this.mode.set(event.value as string);
+  }
+
+  onEnvironmentChange(event: ChangeArgs) {
+    if (event.value) {
+      this.envService.setEnvironment(event.value as ApiEnvironment);
+    }
   }
 
   upload() {

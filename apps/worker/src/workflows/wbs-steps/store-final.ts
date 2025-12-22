@@ -2,17 +2,19 @@ import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
+import type { Logger } from "../../services/logger";
 
-export async function storeFinalStep(ctx: WbsWorkflowContext, finalNodes: WbsNode[]) {
+export async function storeFinalStep(ctx: WbsWorkflowContext, env: Env, finalNodes: WbsNode[], logger: Logger) {
     try {
-        ctx.logger.info("store-final - starting");
+        logger.info("store-final - starting");
 
-        await putArtifactJson(ctx, "document_final.json", finalNodes);
+        await putArtifactJson(ctx, env.UPLOADS_R2, "document_final.json", finalNodes);
 
-        ctx.logger.info("store-final - done");
+        logger.info("store-final - done");
     }
-    catch (error) {
-        ctx.logger.error("store-final - error", { error });
-        throw new NonRetryableError("Failed to store final nodes");
+    catch (error: any) {
+        logger.exception("store-final - error", error);
+
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

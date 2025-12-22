@@ -37,9 +37,9 @@ declare namespace Cloudflare {
     LLM_DEFAULT_SUMMARY_PROVIDER: string;
 
     CF_GATEWAY_KEY: string;
-    OPENAI_API_KEY?: string;
-    ANTHROPIC_API_KEY?: string;
-    GEMINI_API_KEY?: string;
+    OPENAI_API_KEY: string;
+    ANTHROPIC_API_KEY: string;
+    GEMINI_API_KEY: string;
 
     // R2 presign (S3)
     R2_S3_ENDPOINT: string;

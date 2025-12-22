@@ -1,6 +1,7 @@
 import type { DocumentPattern, RegionContext } from "../models/globalAnalysis";
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
+import { SiteConfig } from "../models/site-config";
 import type { WbsNode } from "../models/wbs";
 import * as bestPrompt from "../prompts/step04_extract_best_judgment";
 import * as strictPrompt from "../prompts/step04_extract_strict";
@@ -20,7 +21,7 @@ export interface GlobalContext {
   regionGuidance?: RegionContext;
 }
 
-export async function extractRegion(env: Env, input: {
+export async function extractRegion(config: SiteConfig, input: {
   jobId: string;
   mode: JobMode;
   region: Region;
@@ -51,7 +52,7 @@ export async function extractRegion(env: Env, input: {
     }
   ];
 
-  const { json, rawText } = await generateJson<RegionExtraction>(env, {
+  const { json, rawText } = await generateJson<RegionExtraction>(config, {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: input.mode === "strict" ? 0.2 : 0.35,

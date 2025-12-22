@@ -2,7 +2,7 @@ import type { WbsNode } from "../models/wbs";
 import type { Region } from "../models/regions";
 import type { ValidationReport } from "../models/qc";
 
-export function validateNodes(jobId: string, nodes: WbsNode[], regions: Region[]): ValidationReport {
+export function validateNodes(nodes: WbsNode[], regions: Region[]): ValidationReport {
   const unsupportedNodes: ValidationReport["unsupportedNodes"] = [];
   const duplicates: ValidationReport["duplicates"] = [];
   const numberingIssues: ValidationReport["numberingIssues"] = [];

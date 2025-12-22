@@ -1,29 +1,30 @@
 import { NonRetryableError } from "cloudflare:workflows";
-import { putArtifactJson } from "../../services/artifactsService";
-import { cacheTtl, kvPutJson } from "../../services/kvCacheService";
-import type { Repositories } from "../../services/mongo/repositories";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
+import { putArtifactJson } from "../../services/artifactsService";
+import { kvPutJson } from "../../services/kvCacheService";
+import type { Logger } from "../../services/logger";
+import type { Repositories } from "../../services/mongo/repositories";
 
-export async function diStoreArtifact(ctx: WbsWorkflowContext, diRaw: unknown, cacheHit: boolean, repos: Repositories): Promise<void> {
+export async function diStoreArtifact(ctx: WbsWorkflowContext, env: Env, diRaw: unknown, cacheHit: boolean, repos: Repositories, logger: Logger): Promise<void> {
     try {
-        ctx.logger.info("di-store-artifact - starting");
+        logger.info("di-store-artifact - starting");
 
         if (cacheHit) {
-            await putArtifactJson(ctx, "di_cached.json", diRaw);
+            await putArtifactJson(ctx, env.UPLOADS_R2, "di_cached.json", diRaw);
             await repos.artifacts.record(ctx.job.jobId, "di_cached", `artifacts/${ctx.job.jobId}/di_cached.json`);
 
         } else {
-            await putArtifactJson(ctx, "di_raw.json", diRaw);
+            await putArtifactJson(ctx, env.UPLOADS_R2, "di_raw.json", diRaw);
             await repos.artifacts.record(ctx.job.jobId, "di_raw", `artifacts/${ctx.job.jobId}/di_raw.json`);
 
-            if (ctx.config.diCacheEnabled) {
-                await kvPutJson(ctx.env, ctx.config.diCacheKey, diRaw, cacheTtl(ctx.env));
+            if (ctx.docIntel.cacheEnabled) {
+                await kvPutJson(env.DI_CACHE_KV, ctx.docIntel.cacheKey, diRaw, ctx.docIntel.cacheTtlSeconds);
             }
         }
-        ctx.logger.info("di-store-artifact - done");
+        logger.info("di-store-artifact - done");
     }
-    catch (error) {
-        ctx.logger.error("di-store-artifact - error", { error });
-        throw new NonRetryableError("Failed to store DI artifact");
+    catch (error: any) {
+        logger.exception("di-store-artifact - error", error);
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

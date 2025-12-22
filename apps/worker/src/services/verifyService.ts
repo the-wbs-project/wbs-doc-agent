@@ -1,6 +1,7 @@
 import type { JobMode } from "../models/job";
 import type { ValidationReport } from "../models/qc";
 import type { Region } from "../models/regions";
+import type { SiteConfig } from "../models/site-config";
 import type { WbsNode } from "../models/wbs";
 import * as bestPrompt from "../prompts/step07_verify_best_judgment";
 import * as strictPrompt from "../prompts/step07_verify_strict";
@@ -13,7 +14,7 @@ export type VerifyOutput = {
   escalationPlan: { needed: boolean; targetRegionIds: string[]; reason: string };
 };
 
-export async function verifyDocument(env: Env, input: {
+export async function verifyDocument(config: SiteConfig, input: {
   jobId: string;
   mode: JobMode;
   nodes: WbsNode[];
@@ -43,7 +44,7 @@ export async function verifyDocument(env: Env, input: {
     }
   ];
 
-  const { json, rawText } = await generateJson<VerifyOutput>(env, {
+  const { json, rawText } = await generateJson<VerifyOutput>(config, {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: 0.15,

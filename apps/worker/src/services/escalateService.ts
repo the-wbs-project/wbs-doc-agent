@@ -21,7 +21,7 @@ export async function escalateAndJudge(ctx: WbsWorkflowContext, input: {
     const candidates: Array<{ name: string; provider: string; model: string; nodes: WbsNode[]; rawNotes?: string }> = [];
 
     await Promise.all(input.extractCandidates.map(async c => {
-      const { extraction } = await extractRegion(ctx.env, { jobId: ctx.job.jobId, mode: ctx.job.mode, region, llm: { provider: c.provider, model: c.model } });
+      const { extraction } = await extractRegion(ctx, { jobId: ctx.job.jobId, mode: ctx.job.mode, region, llm: { provider: c.provider, model: c.model } });
       // attach jobId now
       const nodes = extraction.nodes.map(n => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
       candidates.push({ name: c.name, provider: c.provider, model: c.model, nodes, rawNotes: extraction.notes });
@@ -41,7 +41,7 @@ export async function escalateAndJudge(ctx: WbsWorkflowContext, input: {
       }
     ];
 
-    const { json } = await generateJson<any>(ctx.env, {
+    const { json } = await generateJson<any>(ctx, {
       provider: input.judge.provider,
       model: input.judge.model,
       temperature: 0.1,

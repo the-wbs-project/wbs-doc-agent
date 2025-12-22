@@ -18,12 +18,20 @@ export async function getContext(env: Env, jobId: string, logger: Logger, repos:
         const j = await repos.jobs.get(jobId);
 
         const config: WbsWorkflowContext = {
-            env,
-            jobId,
-            logger,
-            repos,
+            //env,
             job: j,
-            config: {
+            diBackendUrl: env.DI_BACKEND_URL,
+            docIntel: {
+                cacheKey: diCacheKey(j.fileHashSha256, env.DI_MODEL, env.DI_BACKEND_VERSION),
+                cacheTtlSeconds: parseInt(env.DI_CACHE_TTL_SECONDS, 10),
+                cacheEnabled: env.DI_CACHE_ENABLED === "true",
+            },
+            ai: {
+                gatewayKey: env.CF_GATEWAY_KEY,
+                openAiKey: env.OPENAI_API_KEY,
+                anthropicKey: env.ANTHROPIC_API_KEY,
+                geminiKey: env.GEMINI_API_KEY,
+
                 globalProvider: globalProvider[0],
                 globalModel: getModel(globalProvider[0], globalProvider[1]),
 
@@ -38,18 +46,16 @@ export async function getContext(env: Env, jobId: string, logger: Logger, repos:
 
                 summaryProvider: summaryProvider[0],
                 summaryModel: getModel(summaryProvider[0], summaryProvider[1]),
-
-                diCacheKey: diCacheKey(j.fileHashSha256, env.DI_MODEL, env.DI_BACKEND_VERSION),
-                diCacheTtlSeconds: parseInt(env.DI_CACHE_TTL_SECONDS, 10),
-                diCacheEnabled: env.DI_CACHE_ENABLED === "true",
             }
         };
-        logger.info("get-config - done", { config });
+        logger.info("get-config - done");
 
         return config;
     }
-    catch (error) {
-        logger.error("get-config - error", { error });
-        throw new NonRetryableError("Failed to get config");
+    catch (error: any) {
+        console.log('hi');
+        logger.error("get-config - error", { message: error.message, stack: error.stack });
+
+        throw new NonRetryableError(error.message, error.stack);
     }
 }

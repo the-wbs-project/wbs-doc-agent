@@ -7,22 +7,22 @@ import { analyzeDocument } from "../../services/globalAnalysisService";
 import type { Logger } from "../../services/logger";
 import { appendStatus, setStatus } from "../../status/statusClient";
 
-export async function globalAnalysisStep(ctx: WbsWorkflowContext, diNormalized: NormalizedDi, regions: Region[], log: Logger): Promise<GlobalAnalysis> {
-    log.info("global-analysis - starting step");
+export async function globalAnalysisStep(ctx: WbsWorkflowContext, env: Env, diNormalized: NormalizedDi, regions: Region[], logger: Logger): Promise<GlobalAnalysis> {
+    logger.info("global-analysis - starting");
 
     try {
-        await setStatus(ctx, { step: "global_analysis", percent: 25, message: "Analyzing document structure" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "global_analysis", percent: 25, message: "Analyzing document structure" });
 
-        const { analysis, rawText } = await analyzeDocument(ctx.env, {
+        const { analysis, rawText } = await analyzeDocument(ctx, {
             jobId: ctx.job.jobId,
             diNormalized,
             regions,
-            llm: { provider: ctx.config.globalProvider, model: ctx.config.globalModel }
+            llm: { provider: ctx.ai.globalProvider, model: ctx.ai.globalModel }
         });
 
-        await putArtifactJson(ctx, "global_analysis.json", { analysis, rawText });
+        await putArtifactJson(ctx, env.UPLOADS_R2, "global_analysis.json", { analysis, rawText });
 
-        log.info("global-analysis - done", {
+        logger.info("global-analysis - done", {
             pattern: analysis.documentPattern,
             skeletonNodes: analysis.skeleton.nodes.length,
             regionsWithGuidance: analysis.regionGuidance.length
@@ -33,9 +33,9 @@ export async function globalAnalysisStep(ctx: WbsWorkflowContext, diNormalized: 
     catch (error: any) {
         console.log(error);
 
-        ctx.logger.error("global-analysis - error", { error: { message: error.message, stack: error.stack } });
+        logger.exception("global-analysis - error", error);
 
-        await appendStatus(ctx, "error", "Global analysis failed, trying again...");
+        await appendStatus(ctx.job.jobId, env.JOB_STATUS_DO, "error", "Global analysis failed, trying again...");
 
         throw error;
     }

@@ -1,31 +1,32 @@
-import { NonRetryableError } from "cloudflare:workflows";
 import type { ValidationReport } from "../../models/qc";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
+import type { Logger } from "../../services/logger";
 import { generateSummary } from "../../services/summaryService";
 import type { VerifierIssue } from "../../services/verifyService";
 import { setStatus } from "../../status/statusClient";
 
-export async function generateSummaryStep(ctx: WbsWorkflowContext, finalNodes: WbsNode[], validationReport: ValidationReport, verifierIssues: VerifierIssue[]) {
+export async function generateSummaryStep(ctx: WbsWorkflowContext, env: Env, finalNodes: WbsNode[], validationReport: ValidationReport, verifierIssues: VerifierIssue[], logger: Logger) {
     try {
-        ctx.logger.info("generate-summary - starting");
+        logger.info("generate-summary - starting");
 
-        await setStatus(ctx, { step: "summary", percent: 96, message: "Generating summary" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "summary", percent: 96, message: "Generating summary" });
 
         const { summary, rawText } = await generateSummary(ctx, {
             nodes: finalNodes,
             validationReport,
             verifierIssues,
-            llm: { provider: ctx.config.summaryProvider, model: ctx.config.summaryModel },
+            llm: { provider: ctx.ai.summaryProvider, model: ctx.ai.summaryModel },
         });
 
-        await putArtifactJson(ctx, "summary.json", { summary, summaryRaw: rawText });
+        await putArtifactJson(ctx, env.UPLOADS_R2, "summary.json", { summary, summaryRaw: rawText });
 
-        ctx.logger.info("generate-summary - done");
+        logger.info("generate-summary - done");
     }
-    catch (error) {
-        ctx.logger.error("generate-summary - error", { error });
-        throw new NonRetryableError("Failed to generate summary");
+    catch (error: any) {
+        logger.exception("generate-summary - error", error);
+
+        throw error;
     }
 }

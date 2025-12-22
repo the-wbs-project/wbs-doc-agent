@@ -1,11 +1,13 @@
-export async function analyzeWithDiBackend(env: Env, input: {
+import type { SiteConfig } from "../models/site-config";
+
+export async function analyzeWithDiBackend(config: SiteConfig, input: {
   fileObj: R2ObjectBody;
   fileKey: string;
 }) {
   const formData = new FormData();
   formData.append('file', await input.fileObj.blob(), input.fileKey.split('/').pop() || 'file.pdf');
 
-  const res = await fetch(env.DI_BACKEND_URL, {
+  const res = await fetch(config.diBackendUrl, {
     method: "POST",
     body: formData
   });

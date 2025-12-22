@@ -1,3 +1,4 @@
+import { SiteConfig } from "../../models/site-config";
 import { extractJsonObject } from "./json";
 import { chatAnthropic } from "./providers/anthropic";
 import { chatGemini } from "./providers/gemini";
@@ -11,11 +12,11 @@ export type LlmConfig = {
   temperature?: number;
 };
 
-export async function generateJson<T>(env: Env, cfg: LlmConfig, messages: LlmMessage[]): Promise<{ json: T; rawText: string }> {
+export async function generateJson<T>(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]): Promise<{ json: T; rawText: string }> {
   let rawText = "";
-  if (cfg.provider === "openai") rawText = await chatOpenAI(env, cfg, messages);
-  else if (cfg.provider === "anthropic") rawText = await chatAnthropic(env, cfg, messages);
-  else rawText = await chatGemini(env, cfg, messages);
+  if (cfg.provider === "openai") rawText = await chatOpenAI(siteConfig, cfg, messages) ?? '';
+  else if (cfg.provider === "anthropic") rawText = await chatAnthropic(siteConfig, cfg, messages);
+  else rawText = await chatGemini(siteConfig, cfg, messages);
 
   const json = extractJsonObject(rawText) as T;
   return { json, rawText };

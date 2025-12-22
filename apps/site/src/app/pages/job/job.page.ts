@@ -4,13 +4,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
 import { TabModule } from '@syncfusion/ej2-angular-navigations';
-import { TreeGridModule } from '@syncfusion/ej2-angular-treegrid';
+import { ToolbarService, TreeGridModule } from '@syncfusion/ej2-angular-treegrid';
 import { catchError, interval, of, switchMap, takeWhile, tap } from 'rxjs';
 import { JobResult, JobsService, JobStatus, WbsNode } from '../../services/jobs.service';
 
 @Component({
   selector: 'app-job',
   imports: [JsonPipe, ButtonModule, TabModule, TreeGridModule],
+  providers: [ToolbarService],
   template: `
     <div class="min-h-screen bg-gray-50 text-gray-900 p-4">
       <div class="max-w-4xl mx-auto">
@@ -124,6 +125,7 @@ import { JobResult, JobsService, JobStatus, WbsNode } from '../../services/jobs.
                           [allowResizing]="true"
                           [allowTextWrap]="true"
                           [height]="400"
+                          [toolbar]="['ExpandAll', 'CollapseAll']"
                         >
                           <e-columns>
                             <e-column field="title" headerText="Title" [width]="500">

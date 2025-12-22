@@ -4,33 +4,34 @@ import type { Region } from "../../models/regions";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
+import type { Logger } from "../../services/logger";
 import { type VerifyOutput, verifyDocument } from "../../services/verifyService";
 import { setStatus } from "../../status/statusClient";
 
-export async function verifyStep(ctx: WbsWorkflowContext, draftNodes: WbsNode[], validationReport: ValidationReport, regions: Region[]): Promise<VerifyOutput> {
+export async function verifyStep(ctx: WbsWorkflowContext, env: Env, draftNodes: WbsNode[], validationReport: ValidationReport, regions: Region[], logger: Logger): Promise<VerifyOutput> {
     try {
-        ctx.logger.info("verify - starting");
+        logger.info("verify - starting");
 
-        await setStatus(ctx, { step: "verify", percent: 75, message: "Verifying document" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "verify", percent: 75, message: "Verifying document" });
 
-        const { out, rawText } = await verifyDocument(ctx.env, {
+        const { out, rawText } = await verifyDocument(ctx, {
             jobId: ctx.job.jobId,
             mode: ctx.job.mode,
             nodes: draftNodes,
             validationReport,
             regions,
-            llm: { provider: ctx.config.verifyProvider, model: ctx.config.verifyModel },
+            llm: { provider: ctx.ai.verifyProvider, model: ctx.ai.verifyModel },
         });
 
-        await putArtifactJson(ctx, "verifier_output.json", { verifyOut: out, verifyRaw: rawText });
+        await putArtifactJson(ctx, env.UPLOADS_R2, "verifier_output.json", { verifyOut: out, verifyRaw: rawText });
 
-        ctx.logger.info("verify - done");
+        logger.info("verify - done");
 
         return out;
     }
     catch (error: any) {
-        ctx.logger.error("verify - error", { error: { message: error.message, stack: error.stack } });
+        logger.exception("verify - error", error);
 
-        throw new NonRetryableError("Failed to verify document");
+        throw new NonRetryableError(error.message, error.stack);
     }
 };

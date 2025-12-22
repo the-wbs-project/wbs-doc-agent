@@ -4,13 +4,14 @@ import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
 import { extractRegion } from "../../services/extractService";
+import type { Logger } from "../../services/logger";
 import { setStatus } from "../../status/statusClient";
 
-export async function extractBatchStep(ctx: WbsWorkflowContext, batch: Region[], batchStartIdx: number, regions: Region[], globalAnalysis: GlobalAnalysis): Promise<WbsNode[]> {
+export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch: Region[], batchStartIdx: number, regions: Region[], globalAnalysis: GlobalAnalysis, logger: Logger): Promise<WbsNode[]> {
     try {
-        ctx.logger.info("extract-batch - starting", { index: batchStartIdx, length: batch.length });
+        logger.info("extract-batch - starting", { index: batchStartIdx, length: batch.length });
 
-        await setStatus(ctx, {
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, {
             step: "extract_regions",
             percent: 30 + Math.floor((25 * (batchStartIdx + batch.length)) / regions.length),
             message: `Extracting regions ${batchStartIdx + 1}-${batchStartIdx + batch.length} of ${regions.length}`,
@@ -25,34 +26,34 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, batch: Region[],
                         g => g.regionId === region.regionId
                     );
 
-                    ctx.logger.info("extract_region_start", {
+                    logger.info("extract_region_start", {
                         regionId: region.regionId,
                         type: region.type,
                         tokenEstimate: region.tokenEstimate,
-                        provider: ctx.config.extractProvider,
-                        model: ctx.config.extractModel,
+                        provider: ctx.ai.extractProvider,
+                        model: ctx.ai.extractModel,
                         hasGuidance: !!regionGuidance,
                         sectionPath: regionGuidance?.context.sectionPath
                     });
 
-                    const { extraction, rawText } = await extractRegion(ctx.env, {
+                    const { extraction, rawText } = await extractRegion(ctx, {
                         jobId: ctx.job.jobId,
                         mode: ctx.job.mode,
                         region,
-                        llm: { provider: ctx.config.extractProvider, model: ctx.config.extractModel },
+                        llm: { provider: ctx.ai.extractProvider, model: ctx.ai.extractModel },
                         globalContext: {
                             documentPattern: globalAnalysis.documentPattern,
                             regionGuidance: regionGuidance?.context
                         }
                     });
 
-                    await putArtifactJson(ctx, `extractions/region_${region.regionId}.json`, {
+                    await putArtifactJson(ctx, env.UPLOADS_R2, `extractions/region_${region.regionId}.json`, {
                         extraction,
                         rawText,
                         contextUsed: regionGuidance?.context
                     });
 
-                    ctx.logger.info("extract_region_done", {
+                    logger.info("extract_region_done", {
                         regionId: region.regionId,
                         nodes: extraction.nodes.length,
                         confidence: extraction.confidence,
@@ -60,22 +61,23 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, batch: Region[],
 
                     return extraction.nodes.map((n) => ({ ...n, jobId: ctx.job.jobId }) as WbsNode);
                 } catch (err: any) {
-                    ctx.logger.error("extract_region_error", {
+                    logger.error("extract_region_error", {
                         regionId: region.regionId,
                         error: err.message,
                     });
+                    logger.exception("extract_region_error", err);
                     throw err;
                 }
             })
         );
 
         // Flatten results from all regions in this batch
-        ctx.logger.info("extract-batch - done", { nodes: results.flat().length });
+        logger.info("extract-batch - done", { nodes: results.flat().length });
 
         return results.flat();
     }
     catch (error: any) {
-        ctx.logger.error("extract-batch - error", { error: { message: error.message, stack: error.stack } });
+        logger.exception("extract-batch - error", error);
         throw error;
     }
 }

@@ -36,7 +36,7 @@ jobsRoute.post("/", async (c) => {
 
         log.info("ingest_start", { jobId, filename, sizeBytes, contentType, mode });
 
-        await putR2Object(c.env, r2UploadKey, bytes, contentType);
+        await putR2Object(c.env.UPLOADS_R2, r2UploadKey, bytes, contentType);
 
         const job: JobRecord = {
             jobId,
@@ -54,7 +54,7 @@ jobsRoute.post("/", async (c) => {
         };
 
         await repos.jobs.create(job);
-        await initStatus({ env: c.env, jobId });
+        await initStatus(jobId, c.env.JOB_STATUS_DO);
 
         log.info("workflow_starting", { jobId });
 
@@ -69,7 +69,7 @@ jobsRoute.post("/", async (c) => {
 
 jobsRoute.get("/:jobId/status", async (c) => {
     const jobId = c.req.param("jobId");
-    const status = await getStatus({ env: c.env, jobId });
+    const status = await getStatus(jobId, c.env.JOB_STATUS_DO);
     return c.json(status);
 });
 

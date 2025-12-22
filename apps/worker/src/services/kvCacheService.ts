@@ -2,16 +2,12 @@ export function diCacheKey(fileHash: string, diModel: string, diBackendVersion: 
   return `di:${fileHash}:${diModel}:${diBackendVersion}`;
 }
 
-export async function kvGetJson(env: Env, key: string) {
-  const txt = await env.DI_CACHE_KV.get(key);
+export async function kvGetJson(diKV: KVNamespace, key: string) {
+  const txt = await diKV.get(key);
   if (!txt) return null;
   return JSON.parse(txt);
 }
 
-export async function kvPutJson(env: Env, key: string, value: any, ttlSeconds: number) {
-  await env.DI_CACHE_KV.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds });
-}
-
-export function cacheTtl(env: Env) {
-  return parseInt(env.DI_CACHE_TTL_SECONDS, 10);
+export async function kvPutJson(diKV: KVNamespace, key: string, value: any, ttlSeconds: number) {
+  await diKV.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds });
 }

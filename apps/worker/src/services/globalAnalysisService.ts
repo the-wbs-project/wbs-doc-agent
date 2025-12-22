@@ -1,7 +1,8 @@
 import type { GlobalAnalysis, RegionGuidance } from "../models/globalAnalysis";
 import type { Region } from "../models/regions";
-import type { NormalizedDi } from "./diNormalizeService";
+import type { SiteConfig } from "../models/site-config";
 import * as prompt from "../prompts/step03b_global_analysis";
+import type { NormalizedDi } from "./diNormalizeService";
 import { generateJson } from "./llm/llmClient";
 
 /**
@@ -9,7 +10,7 @@ import { generateJson } from "./llm/llmClient";
  * Analyzes the entire document to identify patterns, structure, and provide
  * extraction guidance for each region.
  */
-export async function analyzeDocument(env: Env, input: {
+export async function analyzeDocument(config: SiteConfig, input: {
   jobId: string;
   diNormalized: NormalizedDi;
   regions: Region[];
@@ -35,7 +36,7 @@ export async function analyzeDocument(env: Env, input: {
     }
   ];
 
-  const { json, rawText } = await generateJson<GlobalAnalysis>(env, {
+  const { json, rawText } = await generateJson<GlobalAnalysis>(config, {
     provider: llm.provider,
     model: llm.model,
     temperature: 0.2
