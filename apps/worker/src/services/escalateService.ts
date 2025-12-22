@@ -1,13 +1,11 @@
-import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
 import type { WbsNode } from "../models/wbs";
+import type { WbsWorkflowContext } from "../models/wbs-workflow-context";
 import * as judgePrompt from "../prompts/step08_judge_merge";
 import { extractRegion } from "./extractService";
 import { generateJson } from "./llm/llmClient";
 
-export async function escalateAndJudge(env: Env, input: {
-  jobId: string;
-  mode: JobMode;
+export async function escalateAndJudge(ctx: WbsWorkflowContext, input: {
   targetRegionIds: string[];
   regions: Region[];
   extractCandidates: Array<{ name: string; provider: "openai" | "anthropic" | "gemini"; model: string }>;
@@ -23,9 +21,9 @@ export async function escalateAndJudge(env: Env, input: {
     const candidates: Array<{ name: string; provider: string; model: string; nodes: WbsNode[]; rawNotes?: string }> = [];
 
     await Promise.all(input.extractCandidates.map(async c => {
-      const { extraction } = await extractRegion(env, { jobId: input.jobId, mode: input.mode, region, llm: { provider: c.provider, model: c.model } });
+      const { extraction } = await extractRegion(ctx.env, { jobId: ctx.job.jobId, mode: ctx.job.mode, region, llm: { provider: c.provider, model: c.model } });
       // attach jobId now
-      const nodes = extraction.nodes.map(n => ({ ...n, jobId: input.jobId })) as WbsNode[];
+      const nodes = extraction.nodes.map(n => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
       candidates.push({ name: c.name, provider: c.provider, model: c.model, nodes, rawNotes: extraction.notes });
     }));
 
@@ -33,8 +31,8 @@ export async function escalateAndJudge(env: Env, input: {
       { role: "system" as const, content: judgePrompt.SYSTEM_PROMPT },
       {
         role: "user" as const, content: judgePrompt.buildUserPrompt({
-          jobId: input.jobId,
-          mode: input.mode,
+          jobId: ctx.job.jobId,
+          mode: ctx.job.mode,
           region,
           evidenceText: region.text,
           evidenceRefs: region.evidenceRefs,
@@ -43,14 +41,13 @@ export async function escalateAndJudge(env: Env, input: {
       }
     ];
 
-    const { json } = await generateJson<any>(env, {
+    const { json } = await generateJson<any>(ctx.env, {
       provider: input.judge.provider,
       model: input.judge.model,
       temperature: 0.1,
-      maxTokens: 4096
     }, messages);
 
-    patches[regionId] = (json.selected?.selectedNodes ?? []).map((n: any) => ({ ...n, jobId: input.jobId })) as WbsNode[];
+    patches[regionId] = (json.selected?.selectedNodes ?? []).map((n: any) => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
   }
 
   return patches;

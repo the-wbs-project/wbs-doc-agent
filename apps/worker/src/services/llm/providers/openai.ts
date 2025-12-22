@@ -1,7 +1,15 @@
 import type { LlmConfig, LlmMessage } from "../llmClient";
 
-export async function chatOpenAI(env: Env, cfg: LlmConfig, messages: LlmMessage[]) {
-  if (!env.OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+//Chat GPT Response Output
+declare type ChatGPTResponseOutput = {
+  type: "message";
+  content: {
+    type: "output_text";
+    text: string;
+  }[];
+};
+
+export async function chatOpenAI(env: Env, cfg: LlmConfig, messages: LlmMessage[]): Promise<string | undefined> {
   const res = await fetch("https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/openai/responses", {
     method: "POST",
     headers: {
@@ -16,6 +24,6 @@ export async function chatOpenAI(env: Env, cfg: LlmConfig, messages: LlmMessage[
     })
   });
   if (!res.ok) throw new Error(`OpenAI failed: ${res.status} ${await res.text()}`);
-  const data: any = await res.json();
+  const data: { output: ChatGPTResponseOutput[] } = await res.json();
   return data.output.find(x => x.type === 'message')?.content.find(x => x.type === 'output_text')?.text;
 }

@@ -2,17 +2,18 @@ type Level = "info" | "warn" | "error";
 
 export type LogContext = Record<string, unknown>;
 
+export type Logger = ReturnType<typeof createLogger>;
+
 export function createLogger(base: LogContext = {}) {
   const log = (level: Level, msg: string, data: LogContext = {}) => {
     const line = {
-      msg,
       ts: new Date().toISOString(),
       level,
       ...base,
       ...data
     };
     // plenty of organized console.logs as requested
-    console.log(JSON.stringify(line));
+    console.log(`${level}: ${msg} - ${JSON.stringify(line)}`);
   };
 
   return {

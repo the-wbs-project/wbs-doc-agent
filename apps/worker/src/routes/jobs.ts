@@ -11,7 +11,7 @@ import { ObjectId } from "mongodb";
 
 export const jobsRoute = new Hono<{ Bindings: Env }>();
 
-jobsRoute.post("/jobs", async (c) => {
+jobsRoute.post("/", async (c) => {
     const log = createLogger({ scope: "route:POST /jobs" });
     const jobId = new ObjectId().toString();
     const repos = await Repositories.create(c.env);
@@ -54,7 +54,7 @@ jobsRoute.post("/jobs", async (c) => {
         };
 
         await repos.jobs.create(job);
-        await initStatus(c.env, jobId);
+        await initStatus({ env: c.env, jobId });
 
         log.info("workflow_starting", { jobId });
 
@@ -67,13 +67,13 @@ jobsRoute.post("/jobs", async (c) => {
     return c.json({ jobId }, 202);
 });
 
-jobsRoute.get("/jobs/:jobId/status", async (c) => {
+jobsRoute.get("/:jobId/status", async (c) => {
     const jobId = c.req.param("jobId");
-    const status = await getStatus(c.env, jobId);
+    const status = await getStatus({ env: c.env, jobId });
     return c.json(status);
 });
 
-jobsRoute.get("/jobs/:jobId/result", async (c) => {
+jobsRoute.get("/:jobId/result", async (c) => {
     const jobId = c.req.param("jobId");
     const repos = await Repositories.create(c.env);
 

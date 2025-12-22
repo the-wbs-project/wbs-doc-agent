@@ -12,10 +12,6 @@ export async function kvPutJson(env: Env, key: string, value: any, ttlSeconds: n
   await env.DI_CACHE_KV.put(key, JSON.stringify(value), { expirationTtl: ttlSeconds });
 }
 
-export function cacheEnabled(env: Env) {
-  return env.DI_CACHE_ENABLED === "true";
-}
-
 export function cacheTtl(env: Env) {
   return parseInt(env.DI_CACHE_TTL_SECONDS, 10);
 }

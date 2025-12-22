@@ -45,10 +45,10 @@
 		"MONGO_COLL_NODES": "wbs_nodes",
 		"MONGO_COLL_ARTIFACTS": "job_artifacts",
 
-		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai",
-		"LLM_DEFAULT_VERIFY_PROVIDER": "anthropic",
-		"LLM_DEFAULT_JUDGE_PROVIDER": "anthropic",
-		"LLM_DEFAULT_SUMMARY_PROVIDER": "openai",
+		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai,large",
+		"LLM_DEFAULT_VERIFY_PROVIDER": "anthropic,large",
+		"LLM_DEFAULT_JUDGE_PROVIDER": "anthropic,large",
+		"LLM_DEFAULT_SUMMARY_PROVIDER": "openai,large",
 
 		"R2_S3_ENDPOINT": "https://004dc1af737b22a8aa83b3550fa9b9d3.r2.cloudflarestorage.com",
 		"R2_S3_REGION": "auto",

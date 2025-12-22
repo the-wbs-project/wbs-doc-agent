@@ -1,6 +1,6 @@
-import type { WbsNode } from "../models/wbs";
-import type { ValidationReport } from "../models/qc";
 import type { JobMode } from "../models/job";
+import type { ValidationReport } from "../models/qc";
+import type { WbsNode } from "../models/wbs";
 
 export const PROMPT_ID = "step09_summary_v1";
 
@@ -15,17 +15,15 @@ Return JSON ONLY:
 { "summary": string, "highlights": Array<string>, "qcNotes": Array<string> }
 `;
 
-export function buildUserPrompt(input: {
-  jobId: string;
-  mode: JobMode;
+export function buildUserPrompt(jobId: string, mode: JobMode, input: {
   nodes: WbsNode[];
   validationReport: ValidationReport;
   verifierIssues: Array<{ severity: string; nodeId: string | null; message: string; regionId: string | null }>;
 }) {
   const topLevel = input.nodes.filter(n => !n.parentId).slice(0, 25).map(n => ({ title: n.title, wbsLevel: n.wbsLevel ?? null }));
   return `
-JobId: ${input.jobId}
-Mode: ${input.mode}
+JobId: ${jobId}
+Mode: ${mode}
 
 NODES:
 - total: ${input.nodes.length}
@@ -33,11 +31,11 @@ NODES:
 
 QC:
 ${JSON.stringify({
-  coverageRatio: input.validationReport.coverage.coverageRatio,
-  unsupportedNodes: input.validationReport.unsupportedNodes.length,
-  hierarchyIssues: input.validationReport.hierarchyIssues.length,
-  numberingIssues: input.validationReport.numberingIssues.length
-})}
+    coverageRatio: input.validationReport.coverage.coverageRatio,
+    unsupportedNodes: input.validationReport.unsupportedNodes.length,
+    hierarchyIssues: input.validationReport.hierarchyIssues.length,
+    numberingIssues: input.validationReport.numberingIssues.length
+  })}
 
 VerifierIssuesSample:
 ${JSON.stringify(input.verifierIssues.slice(0, 20))}

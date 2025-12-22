@@ -1,3 +1,4 @@
+import type { DocumentPattern, RegionContext } from "../models/globalAnalysis";
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
 import type { WbsNode } from "../models/wbs";
@@ -14,11 +15,17 @@ export type RegionExtraction = {
   unmappedEvidence: Array<{ evidenceId: string; text: string; reason: string }>;
 };
 
+export interface GlobalContext {
+  documentPattern: DocumentPattern;
+  regionGuidance?: RegionContext;
+}
+
 export async function extractRegion(env: Env, input: {
   jobId: string;
   mode: JobMode;
   region: Region;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
+  globalContext?: GlobalContext;
 }) {
   const prompt = input.mode === "strict" ? strictPrompt : bestPrompt;
 
@@ -32,14 +39,22 @@ export async function extractRegion(env: Env, input: {
 
   const messages = [
     { role: "system" as const, content: prompt.SYSTEM_PROMPT },
-    { role: "user" as const, content: prompt.buildUserPrompt({ jobId: input.jobId, mode: input.mode, region: input.region, evidenceBundle }) }
+    {
+      role: "user" as const,
+      content: prompt.buildUserPrompt({
+        jobId: input.jobId,
+        mode: input.mode,
+        region: input.region,
+        evidenceBundle,
+        globalContext: input.globalContext
+      })
+    }
   ];
 
   const { json, rawText } = await generateJson<RegionExtraction>(env, {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: input.mode === "strict" ? 0.2 : 0.35,
-    maxTokens: 60000
   }, messages);
 
   // Ensure IDs exist; if model forgot, assign

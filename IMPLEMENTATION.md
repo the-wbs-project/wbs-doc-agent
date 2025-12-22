@@ -109,7 +109,8 @@ Response (when completed):
 | 01 | Ingest & Store | 0-2% |
 | 02 | Azure DI + Cache | 2-20% |
 | 03 | Normalize & Segment | 20% |
-| 04 | Extract Regions | 30-55% |
+| 03b | **Global Document Analysis** | 25% |
+| 04 | Extract Regions (Context-Aware) | 30-55% |
 | 05 | Validate & QC | 60% |
 | 06 | Consolidate | 65% |
 | 07 | Verify | 75% |
@@ -117,6 +118,24 @@ Response (when completed):
 | 09 | Finalize & Summary | 92-100% |
 
 See `/steps/*.md` for detailed documentation of each step.
+
+### Two-Pass Extraction Architecture
+
+The pipeline uses a **coarse-to-fine** extraction strategy:
+
+1. **Global Analysis (Step 03b)**: A powerful LLM with large context window analyzes the entire document to identify:
+   - Document pattern (outline, matrix, flat list, mixed)
+   - Structural elements (column headers, phase columns, numbering schemes)
+   - Hierarchy skeleton with suggested WBS levels
+   - Per-region extraction guidance
+
+2. **Context-Aware Extraction (Step 04)**: Each region is extracted with full knowledge of:
+   - Where it fits in the document hierarchy
+   - What layout pattern applies (matrix vs. outline)
+   - Which elements are headers vs. content
+   - Suggested WBS numbering prefix
+
+This solves the **local vs. global context problem** where isolated per-region extraction cannot understand document-wide structure.
 
 ## WBS Node Schema
 
@@ -183,6 +202,7 @@ src/
 │   ├── diNormalizeService.ts
 │   ├── escalateService.ts
 │   ├── extractService.ts
+│   ├── globalAnalysisService.ts  # NEW: Full-document analysis
 │   ├── kvCacheService.ts
 │   ├── r2PresignService.ts
 │   ├── r2Service.ts
@@ -213,6 +233,7 @@ src/
 │   ├── regions.ts
 │   └── wbs.ts
 └── prompts/
+    ├── step03b_global_analysis.ts      # NEW: Document structure analysis
     ├── step04_extract_strict.ts
     ├── step04_extract_best_judgment.ts
     ├── step07_verify_strict.ts
@@ -230,8 +251,9 @@ artifacts/{jobId}/
 ├── di_cached.json                      # Cached DI response
 ├── di_normalized.json                  # Normalized structure
 ├── regions.json                        # Segmented regions
+├── global_analysis.json                # NEW: Document structure analysis
 ├── extractions/
-│   └── region_{regionId}.json          # Per-region extraction
+│   └── region_{regionId}.json          # Per-region extraction (with context)
 ├── validation_report.json              # QC report
 ├── document_draft.json                 # Consolidated draft
 ├── verifier_output.json                # Verifier response

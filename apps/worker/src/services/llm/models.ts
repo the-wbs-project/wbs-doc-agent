@@ -1,7 +1,9 @@
+export type AiModelProvider = "openai" | "anthropic" | "gemini";
+
 export const AI_MODELS = {
     openai: {
         small: 'gpt-5-mini',
-        large: 'gpt-5'
+        large: 'gpt-5.2'
     },
     anthropic: {
         small: 'claude-haiku-4-5',
