@@ -1,7 +1,7 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import type { Logger } from "../../services/logger";
-import type { Repositories } from "../../services/mongo/repositories";
+import type { Repositories } from "../../services/d1/repositories";
 import { setStatus } from "../../status/statusClient";
 
 export async function markRunning(ctx: WbsWorkflowContext, env: Env, logger: Logger, repos: Repositories) {

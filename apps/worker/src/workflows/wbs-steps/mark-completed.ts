@@ -3,7 +3,7 @@ import type { ValidationReport } from "../../models/qc";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import type { Logger } from "../../services/logger";
-import type { Repositories } from "../../services/mongo/repositories";
+import type { Repositories } from "../../services/d1/repositories";
 import { setStatus } from "../../status/statusClient";
 
 export async function markCompletedStep(ctx: WbsWorkflowContext, env: Env, finalNodes: WbsNode[], validationReport: ValidationReport, logger: Logger, repos: Repositories) {

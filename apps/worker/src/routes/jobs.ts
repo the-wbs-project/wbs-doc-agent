@@ -3,18 +3,17 @@ import type { JobMode, JobRecord } from "../models/job";
 import { sha256Hex } from "../services/hash";
 import { uuid } from "../services/id";
 import { createLogger } from "../services/logger";
-import { Repositories } from "../services/mongo/repositories";
+import { Repositories } from "../services/d1/repositories";
 import { putR2Object } from "../services/r2Service";
 import { nowIso } from "../services/time";
 import { getStatus, initStatus } from "../status/statusClient";
-import { ObjectId } from "mongodb";
 
 export const jobsRoute = new Hono<{ Bindings: Env }>();
 
 jobsRoute.post("/", async (c) => {
     const log = createLogger({ scope: "route:POST /jobs" });
-    const jobId = new ObjectId().toString();
-    const repos = await Repositories.create(c.env);
+    const jobId = uuid();
+    const repos = Repositories.create(c.env);
 
     try {
         const body = await c.req.parseBody();
@@ -73,9 +72,15 @@ jobsRoute.get("/:jobId/status", async (c) => {
     return c.json(status);
 });
 
+jobsRoute.get("/:jobId/ws", async (c) => {
+    const jobId = c.req.param("jobId");
+    const stub = c.env.JOB_STATUS_DO.get(c.env.JOB_STATUS_DO.idFromName(jobId));
+    return stub.fetch(c.req.raw);
+});
+
 jobsRoute.get("/:jobId/result", async (c) => {
     const jobId = c.req.param("jobId");
-    const repos = await Repositories.create(c.env);
+    const repos = Repositories.create(c.env);
 
     let job: JobRecord;
     try {
@@ -100,4 +105,40 @@ jobsRoute.get("/:jobId/result", async (c) => {
         nodes,
         artifacts: { r2Prefix: job.r2ArtifactsPrefix },
     });
+});
+
+jobsRoute.get("/:jobId/artifacts", async (c) => {
+    const jobId = c.req.param("jobId");
+    const prefix = `artifacts/${jobId}/`;
+
+    const listed = await c.env.UPLOADS_R2.list({ prefix });
+
+    const artifacts = listed.objects.map((obj) => ({
+        key: obj.key.replace(prefix, ""),
+        size: obj.size,
+        uploaded: obj.uploaded.toISOString(),
+    }));
+
+    return c.json({ artifacts });
+});
+
+jobsRoute.get("/:jobId/artifacts/*", async (c) => {
+    const jobId = c.req.param("jobId");
+    const artifactPath = c.req.path.split(`/${jobId}/artifacts/`)[1];
+    if (!artifactPath) return c.json({ error: "artifact_path_required" }, 400);
+
+    const key = `artifacts/${jobId}/${artifactPath}`;
+    const obj = await c.env.UPLOADS_R2.get(key);
+
+    if (!obj) return c.json({ error: "not_found" }, 404);
+
+    const content = await obj.text();
+
+    // Try to parse as JSON, otherwise return as text
+    try {
+        const json = JSON.parse(content);
+        return c.json(json);
+    } catch {
+        return c.text(content);
+    }
 });

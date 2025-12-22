@@ -50,6 +50,16 @@ export interface UploadResponse {
   jobId: string;
 }
 
+export interface ArtifactInfo {
+  key: string;
+  size: number;
+  uploaded: string;
+}
+
+export interface ArtifactsListResponse {
+  artifacts: ArtifactInfo[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class JobsService {
   private http = inject(HttpClient);
@@ -72,6 +82,14 @@ export class JobsService {
 
   getResult(jobId: string): Observable<JobResult> {
     return this.http.get<JobResult>(`${this.apiUrl}/api/jobs/${jobId}/result`);
+  }
+
+  listArtifacts(jobId: string): Observable<ArtifactsListResponse> {
+    return this.http.get<ArtifactsListResponse>(`${this.apiUrl}/api/jobs/${jobId}/artifacts`);
+  }
+
+  getArtifact(jobId: string, artifactKey: string): Observable<unknown> {
+    return this.http.get<unknown>(`${this.apiUrl}/api/jobs/${jobId}/artifacts/${artifactKey}`);
   }
 }
 

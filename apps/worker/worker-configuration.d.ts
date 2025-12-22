@@ -23,12 +23,8 @@ declare namespace Cloudflare {
     DI_CACHE_TTL_SECONDS: string;
     DI_CACHE_ENABLED: string;
 
-    // MongoDB
-    MONGO_URI: string; // secret - connection string
-    MONGO_DB: string;
-    MONGO_COLL_JOBS: string;
-    MONGO_COLL_NODES: string;
-    MONGO_COLL_ARTIFACTS: string;
+    // D1 Database
+    DB: D1Database;
 
     // LLM defaults
     LLM_DEFAULT_EXTRACT_PROVIDER: string;

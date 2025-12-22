@@ -5,8 +5,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
 import { TabModule } from '@syncfusion/ej2-angular-navigations';
 import { ToolbarService, TreeGridModule } from '@syncfusion/ej2-angular-treegrid';
-import { catchError, interval, of, switchMap, takeWhile, tap } from 'rxjs';
-import { JobResult, JobsService, JobStatus, WbsNode } from '../../services/jobs.service';
+import { catchError, forkJoin, of, tap } from 'rxjs';
+import { ArtifactInfo, JobResult, JobsService, JobStatus } from '../../services/jobs.service';
+import { StatusWsService } from '../../services/status-ws.service';
 
 @Component({
   selector: 'app-job',
@@ -155,6 +156,41 @@ import { JobResult, JobsService, JobStatus, WbsNode } from '../../services/jobs.
                     </div>
                   </ng-template>
                 </e-tabitem>
+                <e-tabitem>
+                  <ng-template #headerText>
+                    <span>Artifacts ({{ artifacts().length }})</span>
+                  </ng-template>
+                  <ng-template #content>
+                    <div class="p-4">
+                      @if (artifacts().length === 0) {
+                        <p class="text-gray-500">No artifacts available yet.</p>
+                      } @else {
+                        <div class="flex flex-wrap gap-2 mb-4">
+                          @for (artifact of artifacts(); track artifact.key) {
+                            <button
+                              class="px-3 py-1.5 text-sm rounded border transition-colors"
+                              [class]="selectedArtifact() === artifact.key ? 'bg-emerald-100 border-emerald-500 text-emerald-700' : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'"
+                              (click)="selectArtifact(artifact.key)"
+                            >
+                              {{ artifact.key }}
+                            </button>
+                          }
+                        </div>
+                        @if (selectedArtifact()) {
+                          <div class="border border-gray-200 rounded">
+                            <div class="bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+                              <span class="font-mono text-sm text-gray-600">{{ selectedArtifact() }}</span>
+                              @if (artifactLoading()) {
+                                <span class="text-xs text-gray-500">Loading...</span>
+                              }
+                            </div>
+                            <pre class="p-3 text-xs overflow-auto max-h-[500px] bg-white">{{ artifactContent() | json }}</pre>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </ng-template>
+                </e-tabitem>
               </e-tabitems>
             </ejs-tab>
           </div>
@@ -175,12 +211,18 @@ export class JobPage implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private jobsService = inject(JobsService);
+  private statusWs = inject(StatusWsService);
   private destroyRef = inject(DestroyRef);
 
   jobId = signal<string>('');
   status = signal<JobStatus | null>(null);
   result = signal<JobResult | null>(null);
   error = signal<string | null>(null);
+
+  artifacts = signal<ArtifactInfo[]>([]);
+  selectedArtifact = signal<string | null>(null);
+  artifactContent = signal<unknown>(null);
+  artifactLoading = signal(false);
 
   progressBarColor(): string {
     const state = this.status()?.state;
@@ -196,40 +238,54 @@ export class JobPage implements OnInit {
       return;
     }
     this.jobId.set(id);
-    this.startPolling();
+    this.connectWebSocket();
   }
 
-  private startPolling() {
-    interval(2000)
+  private connectWebSocket() {
+    this.statusWs
+      .connect(this.jobId())
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        switchMap(() => this.jobsService.getStatus(this.jobId())),
-        tap((status) => this.status.set(status)),
-        takeWhile((status) => status.state !== 'completed' && status.state !== 'failed', true),
+        tap((status) => {
+          this.status.set(status);
+          if (status.state === 'completed' || status.state === 'failed') {
+            this.fetchResultAndArtifacts();
+          }
+        }),
         catchError((err) => {
-          this.error.set(err.error?.error || 'Failed to fetch status');
+          this.error.set('Connection lost');
           return of(null);
         })
       )
-      .subscribe({
-        complete: () => {
-          if (this.status()?.state === 'completed') {
-            this.fetchResult();
-          }
-        },
-      });
+      .subscribe();
+  }
 
-    // Initial fetch
-    this.jobsService.getStatus(this.jobId()).subscribe({
-      next: (status) => this.status.set(status),
-      error: (err) => this.error.set(err.error?.error || 'Failed to fetch status'),
+  private fetchResultAndArtifacts() {
+    forkJoin({
+      result: this.jobsService.getResult(this.jobId()).pipe(catchError(() => of(null))),
+      artifacts: this.jobsService.listArtifacts(this.jobId()).pipe(catchError(() => of({ artifacts: [] }))),
+    }).subscribe(({ result, artifacts }) => {
+      if (result) this.result.set(result);
+      this.artifacts.set(artifacts.artifacts);
     });
   }
 
-  private fetchResult() {
-    this.jobsService.getResult(this.jobId()).subscribe({
-      next: (result) => this.result.set(result),
-      error: () => { }, // ignore - result might not be ready yet
+  selectArtifact(key: string) {
+    if (this.selectedArtifact() === key) return;
+
+    this.selectedArtifact.set(key);
+    this.artifactContent.set(null);
+    this.artifactLoading.set(true);
+
+    this.jobsService.getArtifact(this.jobId(), key).subscribe({
+      next: (content) => {
+        this.artifactContent.set(content);
+        this.artifactLoading.set(false);
+      },
+      error: () => {
+        this.artifactContent.set({ error: 'Failed to load artifact' });
+        this.artifactLoading.set(false);
+      },
     });
   }
 

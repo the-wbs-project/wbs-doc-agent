@@ -2,7 +2,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloud
 import type { Region } from "../models/regions";
 import type { WbsNode } from "../models/wbs";
 import { createLogger } from "../services/logger";
-import { Repositories } from "../services/mongo/repositories";
+import { Repositories } from "../services/d1/repositories";
 import { appendStatus, setStatus } from "../status/statusClient";
 import { consolidateStep } from "./wbs-steps/consolidate";
 import { diCheckCacheAndCall } from "./wbs-steps/di-check-cache-and-call";
@@ -30,7 +30,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
     const { jobId } = event.payload;
     const log = createLogger({ jobId, scope: "workflow" });
     const env = this.env;
-    const repos = await Repositories.create(env);
+    const repos = Repositories.create(env);
 
     try {
       // Get config
@@ -69,7 +69,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       for (let batchIdx = 0; batchIdx < regionBatches.length; batchIdx++) {
         const batch = regionBatches[batchIdx];
         const batchStartIdx = batchIdx * BATCH_SIZE;
-        const batchNodes = await step.do(`extract-batch-${batchIdx}`, () => extractBatchStep(ctx, env, batch, batchStartIdx, regions, globalAnalysis, log));
+        const batchNodes = await step.do(`extract-batch`, () => extractBatchStep(ctx, env, batch, batchStartIdx, regions, globalAnalysis, log));
 
         extractedNodes.push(...batchNodes);
       }

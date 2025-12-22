@@ -3,7 +3,7 @@ import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import { putArtifactJson } from "../../services/artifactsService";
 import { kvPutJson } from "../../services/kvCacheService";
 import type { Logger } from "../../services/logger";
-import type { Repositories } from "../../services/mongo/repositories";
+import type { Repositories } from "../../services/d1/repositories";
 
 export async function diStoreArtifact(ctx: WbsWorkflowContext, env: Env, diRaw: unknown, cacheHit: boolean, repos: Repositories, logger: Logger): Promise<void> {
     try {

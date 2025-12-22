@@ -20,6 +20,16 @@
 
 	"migrations": [{ "tag": "v1", "new_classes": ["JobStatusDO"] }],
 
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "wbs-doc-agent",
+			"database_id": "039e8793-5a1f-4b90-ba9b-3a0b8b5c8ac2",
+			"migrations_dir": "migrations",
+			"remote": true
+		}
+	],
+
 	"kv_namespaces": [
 		{
 			"binding": "DI_CACHE_KV",
@@ -39,11 +49,6 @@
 		"DI_BACKEND_VERSION": "v1",
 		"DI_CACHE_TTL_SECONDS": "604800",
 		"DI_CACHE_ENABLED": "false",
-
-		"MONGO_DB": "wbs-agent-test",
-		"MONGO_COLL_JOBS": "jobs",
-		"MONGO_COLL_NODES": "wbs_nodes",
-		"MONGO_COLL_ARTIFACTS": "job_artifacts",
 
 		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai,large",
 		"LLM_DEFAULT_VERIFY_PROVIDER": "anthropic,large",

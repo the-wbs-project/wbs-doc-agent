@@ -2,14 +2,14 @@ import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
 import type { Logger } from "../../services/logger";
-import type { Repositories } from "../../services/mongo/repositories";
+import type { Repositories } from "../../services/d1/repositories";
 import { setStatus } from "../../status/statusClient";
 
 export async function persistNodesStep(ctx: WbsWorkflowContext, env: Env, finalNodes: WbsNode[], logger: Logger, repos: Repositories) {
     try {
         logger.info("persist-nodes - starting");
 
-        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "persist", percent: 92, message: "Persisting nodes to MongoDB" });
+        await setStatus(ctx.job.jobId, env.JOB_STATUS_DO, { step: "persist", percent: 92, message: "Persisting nodes to D1" });
 
         await repos.nodes.replaceForJob(ctx.job.jobId, finalNodes);
 
