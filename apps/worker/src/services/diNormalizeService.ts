@@ -57,7 +57,6 @@ export function normalizeDi(diRaw: any): NormalizedDi {
   const rawParagraphs = markdown?.paragraphs ?? [];
   const rawSections = markdown?.sections ?? [];
   const rawTables = markdown?.tables ?? [];
-  const content = markdown?.content ?? '';
 
   // Group paragraphs by page number
   const paragraphsByPage = new Map<number, typeof rawParagraphs>();
@@ -73,13 +72,9 @@ export function normalizeDi(diRaw: any): NormalizedDi {
   const pages: NormalizedPage[] = rawPages.map((page: any, idx: number) => {
     const pageNumber = page.pageNumber ?? (idx + 1);
 
-    // Get paragraphs for this page
+    // Get paragraphs for this page - keep ALL paragraphs including headers/footers
+    // Headers often contain section titles important for WBS structure
     const pageParagraphs = paragraphsByPage.get(pageNumber) ?? [];
-
-    // Filter out header/footer paragraphs for cleaner content
-    const contentParagraphs = pageParagraphs.filter((p: any) =>
-      !['pageHeader', 'pageFooter', 'pageNumber'].includes(p.role)
-    );
 
     return {
       pageNumber,
@@ -89,7 +84,7 @@ export function normalizeDi(diRaw: any): NormalizedDi {
         spans: line.spans
       })),
       tables: [], // Tables will be added if present at page level
-      paragraphs: contentParagraphs.map((p: any) => ({
+      paragraphs: pageParagraphs.map((p: any) => ({
         content: p.content ?? '',
         role: p.role,
         boundingRegions: p.boundingRegions
@@ -103,13 +98,11 @@ export function normalizeDi(diRaw: any): NormalizedDi {
       pageNumber: 1,
       lines: [],
       tables: [],
-      paragraphs: rawParagraphs
-        .filter((p: any) => !['pageHeader', 'pageFooter', 'pageNumber'].includes(p.role))
-        .map((p: any) => ({
-          content: p.content ?? '',
-          role: p.role,
-          boundingRegions: p.boundingRegions
-        }))
+      paragraphs: rawParagraphs.map((p: any) => ({
+        content: p.content ?? '',
+        role: p.role,
+        boundingRegions: p.boundingRegions
+      }))
     });
   }
 
@@ -121,13 +114,17 @@ export function normalizeDi(diRaw: any): NormalizedDi {
     boundingRegions: p.boundingRegions
   }));
 
+  const content = diRaw?.content ?? '';
+
+  delete diRaw.content;
+
   return {
-    raw: diRaw,
     link: diRaw?.link,
-    content,
     pages,
     paragraphs,
     tables: rawTables,
-    sections: rawSections
+    sections: rawSections,
+    raw: diRaw,
+    content
   };
 }

@@ -35,7 +35,7 @@ JobId: ${input.jobId}
 Mode: ${input.mode}
 
 REGION:
-${JSON.stringify({ regionId: input.region.regionId, pageOrSheet: input.region.pageOrSheet, type: input.region.type })}
+${JSON.stringify({ regionId: input.region.regionId, pageOrSheet: input.region.pageOrSheet })}
 
 EVIDENCE_TEXT:
 ${input.evidenceText}

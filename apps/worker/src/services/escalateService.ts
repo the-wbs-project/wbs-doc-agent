@@ -5,50 +5,61 @@ import * as judgePrompt from "../prompts/step08_judge_merge";
 import { extractRegion } from "./extractService";
 import { generateJson } from "./llm/llmClient";
 
-export async function escalateAndJudge(ctx: WbsWorkflowContext, input: {
-  targetRegionIds: string[];
-  regions: Region[];
-  extractCandidates: Array<{ name: string; provider: "openai" | "anthropic" | "gemini"; model: string }>;
-  judge: { provider: "openai" | "anthropic" | "gemini"; model: string };
-}) {
-  const regionMap = new Map(input.regions.map(r => [r.regionId, r]));
-  const patches: Record<string, WbsNode[]> = {};
+export type EscalateCandidate = { name: string; provider: "openai" | "anthropic" | "gemini"; model: string };
+export type EscalateJudge = { provider: "openai" | "anthropic" | "gemini"; model: string };
+export type CandidateResult = { name: string; provider: string; model: string; nodes: WbsNode[]; rawNotes?: string };
 
-  for (const regionId of input.targetRegionIds) {
-    const region = regionMap.get(regionId);
-    if (!region) continue;
+/**
+ * Step 1: Run parallel extractions from multiple candidates for a single region.
+ */
+export async function extractCandidatesForRegion(ctx: WbsWorkflowContext, input: {
+  region: Region;
+  metadata: Record<string, string | number>;
+  extractCandidates: EscalateCandidate[];
+}): Promise<CandidateResult[]> {
+  const { region, extractCandidates } = input;
 
-    const candidates: Array<{ name: string; provider: string; model: string; nodes: WbsNode[]; rawNotes?: string }> = [];
+  const candidates: CandidateResult[] = [];
 
-    await Promise.all(input.extractCandidates.map(async c => {
-      const { extraction } = await extractRegion(ctx, { jobId: ctx.job.jobId, mode: ctx.job.mode, region, llm: { provider: c.provider, model: c.model } });
-      // attach jobId now
-      const nodes = extraction.nodes.map(n => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
-      candidates.push({ name: c.name, provider: c.provider, model: c.model, nodes, rawNotes: extraction.notes });
-    }));
+  await Promise.all(extractCandidates.map(async c => {
+    const { extraction } = await extractRegion(ctx, { jobId: ctx.job.jobId, mode: ctx.job.mode, region, metadata: input.metadata, llm: { provider: c.provider, model: c.model } });
+    const nodes = extraction.nodes.map(n => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
+    candidates.push({ name: c.name, provider: c.provider, model: c.model, nodes, rawNotes: extraction.notes });
+  }));
 
-    const messages = [
-      { role: "system" as const, content: judgePrompt.SYSTEM_PROMPT },
-      {
-        role: "user" as const, content: judgePrompt.buildUserPrompt({
-          jobId: ctx.job.jobId,
-          mode: ctx.job.mode,
-          region,
-          evidenceText: region.text,
-          evidenceRefs: region.evidenceRefs,
-          candidates
-        })
-      }
-    ];
+  return candidates;
+}
 
-    const { json } = await generateJson<any>(ctx, {
-      provider: input.judge.provider,
-      model: input.judge.model,
-      temperature: 0.1,
-    }, messages);
+/**
+ * Step 2: Judge the candidates and select the best nodes.
+ */
+export async function judgeCandidates(ctx: WbsWorkflowContext, input: {
+  region: Region;
+  candidates: CandidateResult[];
+  judge: EscalateJudge;
+  metadata: Record<string, string | number>;
+}): Promise<WbsNode[]> {
+  const { region, candidates, judge } = input;
 
-    patches[regionId] = (json.selected?.selectedNodes ?? []).map((n: any) => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
-  }
+  const messages = [
+    { role: "system" as const, content: judgePrompt.SYSTEM_PROMPT },
+    {
+      role: "user" as const, content: judgePrompt.buildUserPrompt({
+        jobId: ctx.job.jobId,
+        mode: ctx.job.mode,
+        region,
+        evidenceText: region.text,
+        evidenceRefs: {},
+        candidates
+      })
+    }
+  ];
 
-  return patches;
+  const { json } = await generateJson<any>(ctx, {
+    provider: judge.provider,
+    model: judge.model,
+    temperature: 0.1,
+  }, messages, input.metadata);
+
+  return (json.selected?.selectedNodes ?? []).map((n: any) => ({ ...n, jobId: ctx.job.jobId })) as WbsNode[];
 }

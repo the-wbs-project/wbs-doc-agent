@@ -76,7 +76,6 @@ export function buildUserPrompt(input: {
     const g = globalContext.regionGuidance;
     contextSection = `
 DOCUMENT CONTEXT (use this to guide extraction):
-- Document pattern: ${globalContext.documentPattern}
 - This region is within section path: ${g.sectionPath?.join(" > ") || "unknown"}
 - Suggested WBS prefix for items in this region: ${g.suggestedParentWbs || "determine from evidence"}
 - Layout type: ${g.layoutHint}
@@ -104,7 +103,6 @@ ${contextSection}
 REGION:
 - regionId: ${region.regionId}
 - pageOrSheet: ${region.pageOrSheet}
-- type: ${region.type}
 
 EVIDENCE_TEXT (quotes MUST be exact substrings):
 ${evidenceBundle.text}

@@ -16,5 +16,10 @@ export async function analyzeWithDiBackend(config: SiteConfig, input: {
     const txt = await res.text().catch(() => "");
     throw new Error(`DI backend failed: ${res.status} ${txt}`);
   }
-  return await res.json();
+  const obj: any = await res.json();
+  const content = obj.content;
+
+  delete obj.content;
+
+  return { ...obj, content };
 }

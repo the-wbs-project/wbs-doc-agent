@@ -1,4 +1,4 @@
-import type { DocumentPattern, RegionContext } from "../models/globalAnalysis";
+import type { DocumentPattern, GlobalAnalysis, RegionContext } from "../models/globalAnalysis";
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
 import { SiteConfig } from "../models/site-config";
@@ -17,7 +17,7 @@ export type RegionExtraction = {
 };
 
 export interface GlobalContext {
-  documentPattern: DocumentPattern;
+  analysis: GlobalAnalysis;
   regionGuidance?: RegionContext;
 }
 
@@ -25,18 +25,11 @@ export async function extractRegion(config: SiteConfig, input: {
   jobId: string;
   mode: JobMode;
   region: Region;
+  metadata: Record<string, string | number>;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
   globalContext?: GlobalContext;
 }) {
   const prompt = input.mode === "strict" ? strictPrompt : bestPrompt;
-
-  const evidenceBundle = {
-    pageOrSheet: input.region.pageOrSheet,
-    regionId: input.region.regionId,
-    type: input.region.type,
-    text: input.region.text,
-    evidenceRefs: input.region.evidenceRefs
-  };
 
   const messages = [
     { role: "system" as const, content: prompt.SYSTEM_PROMPT },
@@ -46,7 +39,6 @@ export async function extractRegion(config: SiteConfig, input: {
         jobId: input.jobId,
         mode: input.mode,
         region: input.region,
-        evidenceBundle,
         globalContext: input.globalContext
       })
     }
@@ -56,7 +48,7 @@ export async function extractRegion(config: SiteConfig, input: {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: input.mode === "strict" ? 0.2 : 0.35,
-  }, messages);
+  }, messages, input.metadata);
 
   // Ensure IDs exist; if model forgot, assign
   for (const n of json.nodes) {

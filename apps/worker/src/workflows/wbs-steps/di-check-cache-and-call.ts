@@ -32,6 +32,7 @@ export async function diCheckCacheAndCall(ctx: WbsWorkflowContext, env: Env, log
                 fileObj,
                 fileKey: ctx.job.r2UploadKey,
             });
+
             logger.info("di_backend_done", { ms: Date.now() - t0 });
         }
 

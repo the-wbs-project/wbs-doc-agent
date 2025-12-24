@@ -8,7 +8,7 @@ import { consolidateStep } from "./wbs-steps/consolidate";
 import { diCheckCacheAndCall } from "./wbs-steps/di-check-cache-and-call";
 import { diStatusUpdate } from "./wbs-steps/di-status-update";
 import { diStoreArtifact } from "./wbs-steps/di-store-artifact";
-import { escalateStep } from "./wbs-steps/escalate";
+import { escalateStatusStep, escalateExtractStep, escalateJudgeStep, getEscalateConfig, mergeEscalatedNodes } from "./wbs-steps/escalate";
 import { extractBatchStep } from "./wbs-steps/extract-batch";
 import { extractStatusUpdateStep } from "./wbs-steps/extract-status-update";
 import { generateSummaryStep } from "./wbs-steps/generate-summary";
@@ -88,7 +88,27 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
 
       // --- Step 08 escalate if needed ---
       if (verifyOut.escalationPlan?.needed) {
-        finalNodes = await step.do("escalate", async () => escalateStep(ctx, env, regions, verifyOut, log));
+        const targetRegionIds = await step.do("escalate-status", () => escalateStatusStep(ctx, env, verifyOut, log));
+
+        const regionMap = new Map(regions.map(r => [r.regionId, r]));
+        const escalateConfig = getEscalateConfig(ctx);
+        const patches: Record<string, WbsNode[]> = {};
+
+        for (const regionId of targetRegionIds) {
+          const region = regionMap.get(regionId);
+          if (!region) continue;
+
+          const candidates = await step.do(`escalate-extract-${regionId}`, () =>
+            escalateExtractStep(ctx, region, escalateConfig, log)
+          );
+
+          const nodes = await step.do(`escalate-judge-${regionId}`, () =>
+            escalateJudgeStep(ctx, env, region, candidates, escalateConfig, log)
+          );
+          patches[regionId] = nodes;
+        }
+
+        finalNodes = mergeEscalatedNodes(verifyOut, targetRegionIds, patches);
       }
 
       await step.do("store-final", () => storeFinalStep(ctx, env, finalNodes, log));
@@ -100,7 +120,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       await step.do("generate-summary", () => generateSummaryStep(ctx, env, finalNodes, validationReport, verifyOut.issues ?? [], log));
 
       // Mark completed
-      await step.do("mark-completed", () => markCompletedStep(ctx, env, finalNodes, validationReport, log, repos));
+      await step.do("mark-completed", () => markCompletedStep(ctx, env, finalNodes, globalAnalysis, log, repos));
 
     } catch (err: any) {
       console.log("IN FAILED STATE!");

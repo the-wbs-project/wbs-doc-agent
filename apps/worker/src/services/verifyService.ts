@@ -20,16 +20,15 @@ export async function verifyDocument(config: SiteConfig, input: {
   nodes: WbsNode[];
   validationReport: ValidationReport;
   regions: Region[];
+  metadata: Record<string, string | number>;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
 }) {
   const prompt = input.mode === "strict" ? strictPrompt : bestPrompt;
 
-  const regionsEvidence = input.regions.map(r => ({
+  const regionsContent = input.regions.map(r => ({
     regionId: r.regionId,
     pageOrSheet: r.pageOrSheet,
-    type: r.type,
-    evidenceText: r.text,
-    evidenceRefs: r.evidenceRefs
+    markdownContent: r.text,
   }));
 
   const messages = [
@@ -48,7 +47,7 @@ export async function verifyDocument(config: SiteConfig, input: {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: 0.15,
-  }, messages);
+  }, messages, input.metadata);
 
   return { out: json, rawText };
 }

@@ -14,6 +14,7 @@ export async function analyzeDocument(config: SiteConfig, input: {
   jobId: string;
   diNormalized: NormalizedDi;
   regions: Region[];
+  metadata: Record<string, string | number>;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
 }): Promise<{ analysis: GlobalAnalysis; rawText: string }> {
 
@@ -40,7 +41,7 @@ export async function analyzeDocument(config: SiteConfig, input: {
     provider: llm.provider,
     model: llm.model,
     temperature: 0.2
-  }, messages);
+  }, messages, input.metadata);
 
   // Post-process: ensure all regions have guidance
   const analysis = ensureCompleteGuidance(json, regions);
@@ -94,7 +95,7 @@ function ensureCompleteGuidance(analysis: GlobalAnalysis, regions: Region[]): Gl
         context: {
           sectionPath: [],
           suggestedParentWbs: "",
-          layoutHint: region.type === "table" ? "table" : "unknown",
+          layoutHint: "unknown", // region.type === "table" ? "table" : "unknown",
           extractionNotes: "No specific guidance available. Extract items as found."
         }
       });

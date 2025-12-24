@@ -18,6 +18,10 @@ export async function generateSummaryStep(ctx: WbsWorkflowContext, env: Env, fin
             validationReport,
             verifierIssues,
             llm: { provider: ctx.ai.summaryProvider, model: ctx.ai.summaryModel },
+            metadata: {
+                step: "generate_summary",
+                jobId: ctx.job.jobId,
+            },
         });
 
         await putArtifactJson(ctx, env.UPLOADS_R2, "summary.json", { summary, summaryRaw: rawText });

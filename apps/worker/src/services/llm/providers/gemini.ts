@@ -1,7 +1,7 @@
 import type { SiteConfig } from "../../../models/site-config";
 import type { LlmConfig, LlmMessage } from "../llmClient";
 
-export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]) {
+export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[], metadata: Record<string, string | number>) {
 
   // Use Google Generative Language API (Gemini) style.
   // This is a placeholder; adjust endpoint/model naming as needed.
@@ -13,11 +13,12 @@ export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, message
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`
+      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
+      "cf-aig-metadata": JSON.stringify(metadata)
     },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: system + "\n\n" + user }] }],
-      generationConfig: { temperature: cfg.temperature ?? 0.2, maxOutputTokens: 64000 }
+      generationConfig: { temperature: cfg.temperature ?? 0.2, maxOutputTokens: 64000 },
     })
   });
 

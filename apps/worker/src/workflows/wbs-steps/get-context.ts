@@ -1,9 +1,9 @@
 import { NonRetryableError } from "cloudflare:workflows";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
+import type { Repositories } from "../../services/d1/repositories";
 import { diCacheKey } from "../../services/kvCacheService";
 import { type AiModelProvider, getModel } from "../../services/llm/models";
 import type { Logger } from "../../services/logger";
-import type { Repositories } from "../../services/d1/repositories";
 
 export async function getContext(env: Env, jobId: string, logger: Logger, repos: Repositories): Promise<WbsWorkflowContext> {
     logger.info("get-config - starting");

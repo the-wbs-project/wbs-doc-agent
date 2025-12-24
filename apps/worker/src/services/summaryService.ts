@@ -8,6 +8,7 @@ export async function generateSummary(ctx: WbsWorkflowContext, input: {
   nodes: WbsNode[];
   validationReport: ValidationReport;
   verifierIssues: any[];
+  metadata: Record<string, string | number>;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
 }) {
   const messages = [
@@ -19,7 +20,7 @@ export async function generateSummary(ctx: WbsWorkflowContext, input: {
     provider: input.llm.provider,
     model: input.llm.model,
     temperature: 0.3,
-  }, messages);
+  }, messages, input.metadata);
 
   return { summary: json, rawText };
 }

@@ -23,7 +23,10 @@ export function createLogger(base: LogContext = {}) {
     info(msg: string, data?: LogContext) { log("info", msg, data); },
     warn(msg: string, data?: LogContext) { log("warn", msg, data); },
     error(msg: string, data?: LogContext) { log("error", msg, data); },
-    exception(msg: string, error: any) { log("error", msg, { message: error.message, stack: error.stack }); }
+    exception(msg: string, error: any) {
+      console.error(error);
+      log("error", msg, { message: error.message });
+    }
   };
 }
 

@@ -1,7 +1,7 @@
 import type { SiteConfig } from "../../../models/site-config";
 import type { LlmConfig, LlmMessage } from "../llmClient";
 
-export async function chatAnthropic(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]) {
+export async function chatAnthropic(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[], metadata: Record<string, string | number>) {
   // Convert system+user into Anthropic messages
   const system = messages.find(m => m.role === "system")?.content ?? "";
   const user = messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
@@ -12,6 +12,7 @@ export async function chatAnthropic(siteConfig: SiteConfig, cfg: LlmConfig, mess
       "content-type": "application/json",
       "x-api-key": siteConfig.ai.anthropicKey,
       "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
+      "cf-aig-metadata": JSON.stringify(metadata),
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({

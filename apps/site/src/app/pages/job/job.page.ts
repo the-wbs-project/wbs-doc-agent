@@ -6,12 +6,13 @@ import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
 import { TabModule } from '@syncfusion/ej2-angular-navigations';
 import { ToolbarService, TreeGridModule } from '@syncfusion/ej2-angular-treegrid';
 import { catchError, forkJoin, of, tap } from 'rxjs';
+import { JsonTreeComponent } from '../../components/json-tree.component';
 import { ArtifactInfo, JobResult, JobsService, JobStatus } from '../../services/jobs.service';
 import { StatusWsService } from '../../services/status-ws.service';
 
 @Component({
   selector: 'app-job',
-  imports: [JsonPipe, ButtonModule, TabModule, TreeGridModule],
+  imports: [JsonPipe, ButtonModule, TabModule, TreeGridModule, JsonTreeComponent],
   providers: [ToolbarService],
   template: `
     <div class="min-h-screen bg-gray-50 text-gray-900 p-4">
@@ -184,7 +185,9 @@ import { StatusWsService } from '../../services/status-ws.service';
                                 <span class="text-xs text-gray-500">Loading...</span>
                               }
                             </div>
-                            <pre class="p-3 text-xs overflow-auto max-h-[500px] bg-white">{{ artifactContent() | json }}</pre>
+                            <div class="p-3 overflow-auto max-h-[500px] bg-white">
+                              <app-json-tree [data]="artifactContent()" />
+                            </div>
                           </div>
                         }
                       }
@@ -242,14 +245,17 @@ export class JobPage implements OnInit {
   }
 
   private connectWebSocket() {
+    this.fetchArtifacts();
+
     this.statusWs
       .connect(this.jobId())
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         tap((status) => {
           this.status.set(status);
+          this.fetchArtifacts();
           if (status.state === 'completed' || status.state === 'failed') {
-            this.fetchResultAndArtifacts();
+            this.fetchResult();
           }
         }),
         catchError((err) => {
@@ -260,14 +266,20 @@ export class JobPage implements OnInit {
       .subscribe();
   }
 
-  private fetchResultAndArtifacts() {
-    forkJoin({
-      result: this.jobsService.getResult(this.jobId()).pipe(catchError(() => of(null))),
-      artifacts: this.jobsService.listArtifacts(this.jobId()).pipe(catchError(() => of({ artifacts: [] }))),
-    }).subscribe(({ result, artifacts }) => {
-      if (result) this.result.set(result);
-      this.artifacts.set(artifacts.artifacts);
-    });
+  private fetchArtifacts() {
+    this.jobsService
+      .listArtifacts(this.jobId())
+      .pipe(catchError(() => of({ artifacts: [] })))
+      .subscribe((res) => this.artifacts.set(res.artifacts));
+  }
+
+  private fetchResult() {
+    this.jobsService
+      .getResult(this.jobId())
+      .pipe(catchError(() => of(null)))
+      .subscribe((result) => {
+        if (result) this.result.set(result);
+      });
   }
 
   selectArtifact(key: string) {

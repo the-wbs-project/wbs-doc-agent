@@ -17,7 +17,11 @@ export async function globalAnalysisStep(ctx: WbsWorkflowContext, env: Env, diNo
             jobId: ctx.job.jobId,
             diNormalized,
             regions,
-            llm: { provider: ctx.ai.globalProvider, model: ctx.ai.globalModel }
+            llm: { provider: ctx.ai.globalProvider, model: ctx.ai.globalModel },
+            metadata: {
+                step: "global_analysis",
+                jobId: ctx.job.jobId,
+            },
         });
 
         await putArtifactJson(ctx, env.UPLOADS_R2, "global_analysis.json", { analysis, rawText });

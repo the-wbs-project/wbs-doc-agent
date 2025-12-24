@@ -28,7 +28,6 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
 
                     logger.info("extract_region_start", {
                         regionId: region.regionId,
-                        type: region.type,
                         tokenEstimate: region.tokenEstimate,
                         provider: ctx.ai.extractProvider,
                         model: ctx.ai.extractModel,
@@ -39,15 +38,25 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                     const { extraction, rawText } = await extractRegion(ctx, {
                         jobId: ctx.job.jobId,
                         mode: ctx.job.mode,
-                        region,
+                        region: regionToSend,
                         llm: { provider: ctx.ai.extractProvider, model: ctx.ai.extractModel },
                         globalContext: {
-                            documentPattern: globalAnalysis.documentPattern,
+                            analysis: globalAnalysis,
                             regionGuidance: regionGuidance?.context
+                        },
+                        metadata: {
+                            step: "extract_batch",
+                            index: batchStartIdx,
+                            length: batch.length,
+                            jobId: ctx.job.jobId,
                         }
                     });
 
                     await putArtifactJson(ctx, env.UPLOADS_R2, `extractions/region_${region.regionId}.json`, {
+                        llm: {
+                            provider: ctx.ai.extractProvider,
+                            model: ctx.ai.extractModel,
+                        },
                         extraction,
                         rawText,
                         contextUsed: regionGuidance?.context

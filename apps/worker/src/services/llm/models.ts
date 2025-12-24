@@ -12,6 +12,7 @@ export const AI_MODELS = {
     gemini: {
         small: 'gemini-3-pro-preview',
         medium: 'gemini-3-pro-preview',
+        large: 'gemini-3-pro-preview',
     }
 };
 

@@ -12,11 +12,11 @@ export type LlmConfig = {
   temperature?: number;
 };
 
-export async function generateJson<T>(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[]): Promise<{ json: T; rawText: string }> {
+export async function generateJson<T>(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[], metadata: Record<string, string | number>): Promise<{ json: T; rawText: string }> {
   let rawText = "";
-  if (cfg.provider === "openai") rawText = await chatOpenAI(siteConfig, cfg, messages) ?? '';
-  else if (cfg.provider === "anthropic") rawText = await chatAnthropic(siteConfig, cfg, messages);
-  else rawText = await chatGemini(siteConfig, cfg, messages);
+  if (cfg.provider === "openai") rawText = await chatOpenAI(siteConfig, cfg, messages, metadata) ?? '';
+  else if (cfg.provider === "anthropic") rawText = await chatAnthropic(siteConfig, cfg, messages, metadata);
+  else rawText = await chatGemini(siteConfig, cfg, messages, metadata);
 
   const json = extractJsonObject(rawText) as T;
   return { json, rawText };

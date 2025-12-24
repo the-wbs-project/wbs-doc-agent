@@ -21,6 +21,10 @@ export async function verifyStep(ctx: WbsWorkflowContext, env: Env, draftNodes: 
             validationReport,
             regions,
             llm: { provider: ctx.ai.verifyProvider, model: ctx.ai.verifyModel },
+            metadata: {
+                step: "verify",
+                jobId: ctx.job.jobId,
+            },
         });
 
         await putArtifactJson(ctx, env.UPLOADS_R2, "verifier_output.json", { verifyOut: out, verifyRaw: rawText });

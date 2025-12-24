@@ -15,48 +15,87 @@ export function segmentDi(diNormalized: NormalizedDi): Region[] {
     const p = pages[i];
     const pageLabel = String(p.pageNumber ?? (i + 1));
 
-    // tables
-    const tables = p.tables ?? diNormalized.tables ?? [];
+    // Combine all page content
+    const parts: string[] = [];
+
+    // Tables as markdown-style representation
+    const tables = p.tables ?? [];
     for (const t of tables) {
-      const regionId = uuid();
-      const text = JSON.stringify({ table: t }, null, 0);
-      regions.push({
-        regionId,
-        type: "table",
-        pageOrSheet: `page:${pageLabel}`,
-        text,
-        evidenceRefs: { tableId: t.id ?? t.tableId ?? null },
-        tokenEstimate: estimateTokens(text)
-      });
+      if (t.cells) {
+        parts.push(tableToMarkdown(t));
+      } else {
+        parts.push(JSON.stringify(t, null, 2));
+      }
     }
 
-    // paragraphs
-    const paragraphs = p.paragraphs ?? diNormalized.paragraphs ?? [];
-    if (paragraphs.length) {
-      const regionId = uuid();
-      const lines = paragraphs.map((para: any, idx: number) => `${idx+1}. ${(para.content ?? para.text ?? "").trim()}`);
-      const text = lines.join("\n");
+    // Paragraphs
+    const paragraphs = p.paragraphs ?? [];
+    for (const para of paragraphs) {
+      parts.push((para.content ?? "").trim());
+    }
+
+    // Lines as fallback
+    const lines = p.lines ?? [];
+    if (!paragraphs.length && lines.length) {
+      for (const line of lines) {
+        parts.push((line.content ?? "").trim());
+      }
+    }
+
+    if (parts.length) {
+      const text = parts.join("\n\n");
       regions.push({
-        regionId,
-        type: "paragraph_block",
+        regionId: uuid(),
         pageOrSheet: `page:${pageLabel}`,
         text,
-        evidenceRefs: { paragraphCount: paragraphs.length },
-        tokenEstimate: estimateTokens(text)
+        page: p,
+        tokenEstimate: estimateTokens(text + JSON.stringify(p))
       });
     }
-  }
-
-  if (!regions.length) {
-    regions.push({
-      regionId: uuid(),
-      type: "unknown",
-      pageOrSheet: "unknown",
-      text: JSON.stringify(diNormalized.raw ?? {}, null, 0).slice(0, 8000),
-      evidenceRefs: { note: "fallback_region" },
-      tokenEstimate: estimateTokens(JSON.stringify(diNormalized.raw ?? {}).slice(0, 8000))
-    });
   }
 
   return regions;
+}
+
+/**
+ * Convert DI table structure to markdown table format
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tableToMarkdown(table: Record<string, unknown>): string {
+  if (!table.cells || !Array.isArray(table.cells)) {
+    return JSON.stringify(table, null, 2);
+  }
+
+  // Find dimensions
+  let maxRow = 0;
+  let maxCol = 0;
+  for (const cell of table.cells) {
+    const rowEnd = (cell.rowIndex ?? 0) + (cell.rowSpan ?? 1);
+    const colEnd = (cell.columnIndex ?? 0) + (cell.columnSpan ?? 1);
+    if (rowEnd > maxRow) maxRow = rowEnd;
+    if (colEnd > maxCol) maxCol = colEnd;
+  }
+
+  // Build grid
+  const grid: string[][] = Array.from({ length: maxRow }, () =>
+    Array.from({ length: maxCol }, () => "")
+  );
+
+  for (const cell of table.cells) {
+    const row = cell.rowIndex ?? 0;
+    const col = cell.columnIndex ?? 0;
+    const content = (cell.content ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+    grid[row][col] = content;
+  }
+
+  // Convert to markdown
+  const lines: string[] = [];
+  for (let r = 0; r < grid.length; r++) {
+    lines.push("| " + grid[r].join(" | ") + " |");
+    if (r === 0) {
+      lines.push("| " + grid[r].map(() => "---").join(" | ") + " |");
+    }
+  }
+
+  return lines.join("\n");
 }

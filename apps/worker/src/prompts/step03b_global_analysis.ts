@@ -82,7 +82,7 @@ export function buildUserPrompt(input: {
   const { jobId, fullContent, regions, pageCount } = input;
 
   const regionList = regions.map((r, i) =>
-    `  ${i + 1}. regionId: ${r.regionId}, page: ${r.pageOrSheet}, type: ${r.type}`
+    `  ${i + 1}. regionId: ${r.regionId}, page: ${r.pageOrSheet}`
   ).join('\n');
 
   return `
