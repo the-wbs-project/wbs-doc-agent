@@ -6,6 +6,8 @@ import { putArtifactJson } from "../../services/artifactsService";
 import { extractRegion } from "../../services/extractService";
 import type { Logger } from "../../services/logger";
 import { setStatus } from "../../status/statusClient";
+import * as bestPrompt from "../../prompts/step04_extract_best_judgment";
+import * as strictPrompt from "../../prompts/step04_extract_strict";
 
 export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch: Region[], batchStartIdx: number, regions: Region[], globalAnalysis: GlobalAnalysis, logger: Logger): Promise<WbsNode[]> {
     try {
@@ -35,15 +37,22 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                         sectionPath: regionGuidance?.context.sectionPath
                     });
 
-                    const { extraction, rawText } = await extractRegion(ctx, {
+                    const promptObj = ctx.job.mode === "strict" ? strictPrompt : bestPrompt;
+                    const prompt = promptObj.buildUserPrompt({
                         jobId: ctx.job.jobId,
                         mode: ctx.job.mode,
-                        region: regionToSend,
-                        llm: { provider: ctx.ai.extractProvider, model: ctx.ai.extractModel },
+                        region,
                         globalContext: {
                             analysis: globalAnalysis,
                             regionGuidance: regionGuidance?.context
                         },
+                    });
+                    const { extraction, rawText } = await extractRegion(ctx, {
+                        mode: ctx.job.mode,
+                        region,
+                        systemPrompt: promptObj.SYSTEM_PROMPT,
+                        userPrompt: prompt,
+                        llm: { provider: ctx.ai.extractProvider, model: ctx.ai.extractModel },
                         metadata: {
                             step: "extract_batch",
                             index: batchStartIdx,
@@ -52,10 +61,14 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                         }
                     });
 
-                    await putArtifactJson(ctx, env.UPLOADS_R2, `extractions/region_${region.regionId}.json`, {
+                    await putArtifactJson(ctx, env.UPLOADS_R2, `extractions/region_${region.index + 1}.json`, {
                         llm: {
                             provider: ctx.ai.extractProvider,
                             model: ctx.ai.extractModel,
+                        },
+                        prompts: {
+                            system: promptObj.SYSTEM_PROMPT,
+                            user: prompt,
                         },
                         extraction,
                         rawText,

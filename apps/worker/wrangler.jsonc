@@ -48,12 +48,12 @@
 		"DI_MODEL": "prebuilt-layout",
 		"DI_BACKEND_VERSION": "v1",
 		"DI_CACHE_TTL_SECONDS": "604800",
-		"DI_CACHE_ENABLED": "false",
+		"DI_CACHE_ENABLED": "true",
 
-		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai,large",
-		"LLM_DEFAULT_VERIFY_PROVIDER": "anthropic,large",
-		"LLM_DEFAULT_JUDGE_PROVIDER": "anthropic,large",
-		"LLM_DEFAULT_SUMMARY_PROVIDER": "openai,large",
+		"LLM_DEFAULT_EXTRACT_PROVIDER": "gemini,large",
+		"LLM_DEFAULT_VERIFY_PROVIDER": "gemini,large",
+		"LLM_DEFAULT_JUDGE_PROVIDER": "gemini,large",
+		"LLM_DEFAULT_SUMMARY_PROVIDER": "gemini,large",
 
 		"R2_S3_ENDPOINT": "https://004dc1af737b22a8aa83b3550fa9b9d3.r2.cloudflarestorage.com",
 		"R2_S3_REGION": "auto",

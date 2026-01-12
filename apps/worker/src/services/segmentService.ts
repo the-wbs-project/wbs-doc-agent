@@ -46,6 +46,7 @@ export function segmentDi(diNormalized: NormalizedDi): Region[] {
       const text = parts.join("\n\n");
       regions.push({
         regionId: uuid(),
+        index: i,
         pageOrSheet: `page:${pageLabel}`,
         text,
         page: p,

@@ -38,7 +38,7 @@ export async function verifyDocument(config: SiteConfig, input: {
         jobId: input.jobId,
         nodes: input.nodes,
         validationReport: input.validationReport,
-        regionsEvidence: regionsEvidence as any
+        regionsContent,
       })
     }
   ];

@@ -48,8 +48,6 @@ export async function judgeCandidates(ctx: WbsWorkflowContext, input: {
         jobId: ctx.job.jobId,
         mode: ctx.job.mode,
         region,
-        evidenceText: region.text,
-        evidenceRefs: {},
         candidates
       })
     }

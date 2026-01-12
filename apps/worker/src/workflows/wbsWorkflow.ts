@@ -120,7 +120,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       await step.do("generate-summary", () => generateSummaryStep(ctx, env, finalNodes, validationReport, verifyOut.issues ?? [], log));
 
       // Mark completed
-      await step.do("mark-completed", () => markCompletedStep(ctx, env, finalNodes, globalAnalysis, log, repos));
+      await step.do("mark-completed", () => markCompletedStep(ctx, env, finalNodes, validationReport, log, repos));
 
     } catch (err: any) {
       console.log("IN FAILED STATE!");

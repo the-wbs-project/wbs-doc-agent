@@ -181,9 +181,22 @@ import { StatusWsService } from '../../services/status-ws.service';
                           <div class="border border-gray-200 rounded">
                             <div class="bg-gray-100 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
                               <span class="font-mono text-sm text-gray-600">{{ selectedArtifact() }}</span>
-                              @if (artifactLoading()) {
-                                <span class="text-xs text-gray-500">Loading...</span>
-                              }
+                              <div class="flex items-center gap-2">
+                                @if (artifactLoading()) {
+                                  <span class="text-xs text-gray-500">Loading...</span>
+                                } @else {
+                                  <button
+                                    class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-200 text-gray-600 flex items-center gap-1"
+                                    (click)="copyArtifact()"
+                                  >
+                                    @if (copied()) {
+                                      <span>✓ Copied</span>
+                                    } @else {
+                                      <span>Copy</span>
+                                    }
+                                  </button>
+                                }
+                              </div>
                             </div>
                             <div class="p-3 overflow-auto max-h-[500px] bg-white">
                               <app-json-tree [data]="artifactContent()" />
@@ -226,6 +239,7 @@ export class JobPage implements OnInit {
   selectedArtifact = signal<string | null>(null);
   artifactContent = signal<unknown>(null);
   artifactLoading = signal(false);
+  copied = signal(false);
 
   progressBarColor(): string {
     const state = this.status()?.state;
@@ -299,6 +313,14 @@ export class JobPage implements OnInit {
         this.artifactLoading.set(false);
       },
     });
+  }
+
+  copyArtifact() {
+    const content = this.artifactContent();
+    if (!content) return;
+    navigator.clipboard.writeText(JSON.stringify(content, null, 2));
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), 1500);
   }
 
   goBack() {
