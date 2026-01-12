@@ -31,6 +31,7 @@ export async function getContext(env: Env, jobId: string, logger: Logger, repos:
                 openAiKey: env.OPENAI_API_KEY,
                 anthropicKey: env.ANTHROPIC_API_KEY,
                 geminiKey: env.GEMINI_API_KEY,
+                skipCache: j.options?.skipCache === true,
 
                 globalProvider: globalProvider[0],
                 globalModel: getModel(globalProvider[0], globalProvider[1]),

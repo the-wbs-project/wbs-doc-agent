@@ -1,6 +1,6 @@
-import type { GlobalContext } from "../services/extractService";
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
+import type { GlobalContext } from "../services/extractService";
 
 export const PROMPT_ID = "step04_extract_strict_v3";
 
@@ -42,6 +42,7 @@ STRICT MODE:
 - Prefer leaving parentId null over guessing.
 - Every node MUST have an exact quote from the markdown.
 - Output valid JSON only.
+- Page Names may or may not be WBS items. Check the context to determine if they are WBS items.
 
 DOCUMENT CONTEXT AWARENESS:
 When document context is provided, use it to:
@@ -53,7 +54,7 @@ When document context is provided, use it to:
 MATRIX LAYOUT HANDLING:
 If the document uses a matrix layout (rows = categories, columns = phases):
 - Row headers ARE WBS categories (extract them)
-- Column headers (phases like "Predesign", "Schematic Design") are NOT WBS items
+- Column headers (phases like "Predesign", "Schematic Design") are MAY BE WBS items. Check the context to determine if they are WBS items.
 - Items in cells are deliverables that belong to their row category
 `;
 
@@ -96,7 +97,7 @@ REGION:
 - pageOrSheet: ${region.pageOrSheet}
 
 MARKDOWN CONTENT:
-${region.text}
+${JSON.stringify(region.page)}
 
 OUTPUT:
 ${JSON_SCHEMA_HINT}

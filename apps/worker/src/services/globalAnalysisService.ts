@@ -1,7 +1,6 @@
 import type { GlobalAnalysis, RegionGuidance } from "../models/globalAnalysis";
 import type { Region } from "../models/regions";
 import type { SiteConfig } from "../models/site-config";
-import * as prompt from "../prompts/step03b_global_analysis";
 import type { NormalizedDi } from "./diNormalizeService";
 import { generateJson } from "./llm/llmClient";
 
@@ -11,40 +10,26 @@ import { generateJson } from "./llm/llmClient";
  * extraction guidance for each region.
  */
 export async function analyzeDocument(config: SiteConfig, input: {
-  jobId: string;
-  diNormalized: NormalizedDi;
+  systemPrompt: string;
+  userPrompt: string;
   regions: Region[];
   metadata: Record<string, string | number>;
   llm: { provider: "openai" | "anthropic" | "gemini"; model: string };
 }): Promise<{ analysis: GlobalAnalysis; rawText: string }> {
 
-  const { jobId, diNormalized, regions, llm } = input;
-
-  // Build full document content from normalized data
-  const fullContent = buildFullDocumentContent(diNormalized, regions);
-  const pageCount = diNormalized.pages.length || 1;
-
   const messages = [
-    { role: "system" as const, content: prompt.SYSTEM_PROMPT },
-    {
-      role: "user" as const,
-      content: prompt.buildUserPrompt({
-        jobId,
-        fullContent,
-        regions,
-        pageCount
-      })
-    }
+    { role: "system" as const, content: input.systemPrompt },
+    { role: "user" as const, content: input.userPrompt }
   ];
 
   const { json, rawText } = await generateJson<GlobalAnalysis>(config, {
-    provider: llm.provider,
-    model: llm.model,
+    provider: input.llm.provider,
+    model: input.llm.model,
     temperature: 0.2
   }, messages, input.metadata);
 
   // Post-process: ensure all regions have guidance
-  const analysis = ensureCompleteGuidance(json, regions);
+  const analysis = ensureCompleteGuidance(json, input.regions);
 
   return { analysis, rawText };
 }
@@ -53,7 +38,7 @@ export async function analyzeDocument(config: SiteConfig, input: {
  * Builds a full document content string from normalized DI output.
  * Organizes content by page with clear markers.
  */
-function buildFullDocumentContent(diNormalized: NormalizedDi, regions: Region[]): string {
+export function buildFullDocumentContent(diNormalized: NormalizedDi, regions: Region[]): string {
   // If we have the full markdown content, use that
   if (diNormalized.content && diNormalized.content.length > 0) {
     return diNormalized.content;

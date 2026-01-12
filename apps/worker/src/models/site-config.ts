@@ -3,6 +3,7 @@ export interface SiteAiConfig {
     openAiKey: string;
     anthropicKey: string;
     geminiKey: string;
+    skipCache?: boolean;
 }
 
 export interface SiteConfig {

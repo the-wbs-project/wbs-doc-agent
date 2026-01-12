@@ -199,7 +199,11 @@ import { StatusWsService } from '../../services/status-ws.service';
                               </div>
                             </div>
                             <div class="p-3 overflow-auto max-h-[500px] bg-white">
-                              <app-json-tree [data]="artifactContent()" />
+                              @if (artifactIsText()) {
+                                <pre class="font-mono text-xs text-gray-800 whitespace-pre-wrap break-words">{{ artifactContent() }}</pre>
+                              } @else {
+                                <app-json-tree [data]="artifactContent()" />
+                              }
                             </div>
                           </div>
                         }
@@ -238,6 +242,7 @@ export class JobPage implements OnInit {
   artifacts = signal<ArtifactInfo[]>([]);
   selectedArtifact = signal<string | null>(null);
   artifactContent = signal<unknown>(null);
+  artifactIsText = signal(false);
   artifactLoading = signal(false);
   copied = signal(false);
 
@@ -301,6 +306,7 @@ export class JobPage implements OnInit {
 
     this.selectedArtifact.set(key);
     this.artifactContent.set(null);
+    this.artifactIsText.set(key.endsWith('.txt'));
     this.artifactLoading.set(true);
 
     this.jobsService.getArtifact(this.jobId(), key).subscribe({
@@ -309,7 +315,7 @@ export class JobPage implements OnInit {
         this.artifactLoading.set(false);
       },
       error: () => {
-        this.artifactContent.set({ error: 'Failed to load artifact' });
+        this.artifactContent.set(this.artifactIsText() ? 'Failed to load artifact' : { error: 'Failed to load artifact' });
         this.artifactLoading.set(false);
       },
     });
@@ -318,7 +324,8 @@ export class JobPage implements OnInit {
   copyArtifact() {
     const content = this.artifactContent();
     if (!content) return;
-    navigator.clipboard.writeText(JSON.stringify(content, null, 2));
+    const text = this.artifactIsText() ? String(content) : JSON.stringify(content, null, 2);
+    navigator.clipboard.writeText(text);
     this.copied.set(true);
     setTimeout(() => this.copied.set(false), 1500);
   }

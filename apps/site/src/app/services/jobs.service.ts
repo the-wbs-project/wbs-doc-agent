@@ -69,10 +69,13 @@ export class JobsService {
     return this.envService.apiUrl;
   }
 
-  uploadFile(file: File, mode: 'strict' | 'best_judgment' = 'strict'): Observable<UploadResponse> {
+  uploadFile(file: File, mode: 'strict' | 'best_judgment' = 'strict', options?: { skipCache?: boolean }): Observable<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', mode);
+    if (options) {
+      formData.append('options', JSON.stringify(options));
+    }
     return this.http.post<UploadResponse>(`${this.apiUrl}/api/jobs`, formData);
   }
 
@@ -89,7 +92,10 @@ export class JobsService {
   }
 
   getArtifact(jobId: string, artifactKey: string): Observable<unknown> {
-    return this.http.get<unknown>(`${this.apiUrl}/api/jobs/${jobId}/artifacts/${artifactKey}`);
+    const isTextFile = artifactKey.endsWith('.txt');
+    return this.http.get(`${this.apiUrl}/api/jobs/${jobId}/artifacts/${artifactKey}`, {
+      responseType: isTextFile ? 'text' : 'json',
+    } as any);
   }
 }
 

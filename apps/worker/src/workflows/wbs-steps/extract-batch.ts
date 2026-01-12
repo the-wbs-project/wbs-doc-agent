@@ -2,7 +2,7 @@ import type { GlobalAnalysis } from "../../models/globalAnalysis";
 import type { Region } from "../../models/regions";
 import type { WbsNode } from "../../models/wbs";
 import type { WbsWorkflowContext } from "../../models/wbs-workflow-context";
-import { putArtifactJson } from "../../services/artifactsService";
+import { putArtifactJson, putArtifactText } from "../../services/artifactsService";
 import { extractRegion } from "../../services/extractService";
 import type { Logger } from "../../services/logger";
 import { setStatus } from "../../status/statusClient";
@@ -24,6 +24,7 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
             batch.map(async (region) => {
                 try {
                     // Get region-specific guidance from global analysis
+                    const pathPrefix = `extractions/region_${region.index + 1}`;
                     const regionGuidance = globalAnalysis.regionGuidance.find(
                         g => g.regionId === region.regionId
                     );
@@ -47,6 +48,12 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                             regionGuidance: regionGuidance?.context
                         },
                     });
+
+                    await Promise.all([
+                        putArtifactText(ctx, env.UPLOADS_R2, `${pathPrefix}_systemPrompt.txt`, promptObj.SYSTEM_PROMPT),
+                        putArtifactText(ctx, env.UPLOADS_R2, `${pathPrefix}_userPrompt.txt`, prompt)
+                    ]);
+
                     const { extraction, rawText } = await extractRegion(ctx, {
                         mode: ctx.job.mode,
                         region,
@@ -61,14 +68,10 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                         }
                     });
 
-                    await putArtifactJson(ctx, env.UPLOADS_R2, `extractions/region_${region.index + 1}.json`, {
+                    await putArtifactJson(ctx, env.UPLOADS_R2, `${pathPrefix}_output.json`, {
                         llm: {
                             provider: ctx.ai.extractProvider,
                             model: ctx.ai.extractModel,
-                        },
-                        prompts: {
-                            system: promptObj.SYSTEM_PROMPT,
-                            user: prompt,
                         },
                         extraction,
                         rawText,

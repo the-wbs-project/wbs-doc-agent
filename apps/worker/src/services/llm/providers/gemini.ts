@@ -8,14 +8,16 @@ export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, message
   const system = messages.find(m => m.role === "system")?.content ?? "";
   const user = messages.filter(m => m.role === "user").map(m => m.content).join("\n\n");
 
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
+    "cf-aig-metadata": JSON.stringify(metadata),
+    "cf-aig-skip-cache": siteConfig.ai.skipCache ? "true" : "false",
+  };
   const version = cfg.model.includes("preview") ? "v1beta" : "v1";
   const res = await fetch(`https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/google-ai-studio/${version}/models/${cfg.model}:generateContent?key=${siteConfig.ai.geminiKey}`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
-      "cf-aig-metadata": JSON.stringify(metadata)
-    },
+    headers,
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: system + "\n\n" + user }] }],
       generationConfig: { temperature: cfg.temperature ?? 0.2, maxOutputTokens: 64000 },

@@ -11,14 +11,16 @@ declare type ChatGPTResponseOutput = {
 };
 
 export async function chatOpenAI(siteConfig: SiteConfig, cfg: LlmConfig, messages: LlmMessage[], metadata: Record<string, string | number>): Promise<string | undefined> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "Authorization": `Bearer ${siteConfig.ai.openAiKey}`,
+    "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
+    "cf-aig-metadata": JSON.stringify(metadata),
+    "cf-aig-skip-cache": siteConfig.ai.skipCache ? "true" : "false",
+  };
   const res = await fetch("https://gateway.ai.cloudflare.com/v1/004dc1af737b22a8aa83b3550fa9b9d3/wbs-agent-test/openai/responses", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "Authorization": `Bearer ${siteConfig.ai.openAiKey}`,
-      "cf-aig-authorization": `Bearer ${siteConfig.ai.gatewayKey}`,
-      "cf-aig-metadata": JSON.stringify(metadata)
-    },
+    headers,
     body: JSON.stringify({
       model: cfg.model,
       input: messages,

@@ -1,7 +1,7 @@
 import { Component, inject, signal, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { ButtonModule, RadioButtonModule } from '@syncfusion/ej2-angular-buttons';
-import type { ChangeArgs } from '@syncfusion/ej2-angular-buttons';
+import { ButtonModule, CheckBoxModule, RadioButtonModule } from '@syncfusion/ej2-angular-buttons';
+import type { ChangeArgs, ChangeEventArgs as CheckboxChangeEventArgs } from '@syncfusion/ej2-angular-buttons';
 import { DropDownListModule } from '@syncfusion/ej2-angular-dropdowns';
 import { UploaderModule } from '@syncfusion/ej2-angular-inputs';
 import type { SelectedEventArgs, UploaderComponent } from '@syncfusion/ej2-angular-inputs';
@@ -11,7 +11,7 @@ import { JobsService } from '../../services/jobs.service';
 
 @Component({
   selector: 'app-upload',
-  imports: [UploaderModule, DropDownListModule, ButtonModule, RadioButtonModule],
+  imports: [UploaderModule, DropDownListModule, ButtonModule, RadioButtonModule, CheckBoxModule],
   template: `
     <div class="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-4">
       <div class="w-full max-w-lg">
@@ -60,6 +60,14 @@ import { JobsService } from '../../services/jobs.service';
               cssClass="e-outline"
             >
             </ejs-dropdownlist>
+          </div>
+
+          <div class="mt-6">
+            <ejs-checkbox
+              label="Skip Cache"
+              [checked]="skipCache()"
+              (change)="onSkipCacheChange($event)"
+            ></ejs-checkbox>
           </div>
 
           <div class="mt-6">
@@ -115,6 +123,7 @@ export class UploadPage {
   dropArea = '.e-upload';
   selectedFile = signal<File | null>(null);
   mode = signal<string>('strict');
+  skipCache = signal(false);
   uploading = signal(false);
   error = signal<string | null>(null);
 
@@ -144,6 +153,10 @@ export class UploadPage {
     }
   }
 
+  onSkipCacheChange(event: CheckboxChangeEventArgs) {
+    this.skipCache.set(event.checked ?? false);
+  }
+
   upload() {
     const file = this.selectedFile();
     if (!file) return;
@@ -151,7 +164,7 @@ export class UploadPage {
     this.uploading.set(true);
     this.error.set(null);
 
-    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment').subscribe({
+    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment', { skipCache: this.skipCache() }).subscribe({
       next: (res) => {
         this.router.navigate(['/job', res.jobId]);
       },

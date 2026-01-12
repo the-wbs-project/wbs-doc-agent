@@ -25,7 +25,7 @@ export function createLogger(base: LogContext = {}) {
     error(msg: string, data?: LogContext) { log("error", msg, data); },
     exception(msg: string, error: any) {
       console.error(error);
-      log("error", msg, { message: error.message });
+      log("error", msg, { message: error.message, stack: error.stack, cause: error.cause });
     }
   };
 }

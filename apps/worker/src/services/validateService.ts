@@ -1,6 +1,6 @@
-import type { WbsNode } from "../models/wbs";
-import type { Region } from "../models/regions";
 import type { ValidationReport } from "../models/qc";
+import type { Region } from "../models/regions";
+import type { WbsNode } from "../models/wbs";
 
 export function validateNodes(nodes: WbsNode[], regions: Region[]): ValidationReport {
   const unsupportedNodes: ValidationReport["unsupportedNodes"] = [];

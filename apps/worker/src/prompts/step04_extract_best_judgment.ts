@@ -43,6 +43,7 @@ BEST-JUDGMENT MODE:
 - If you infer parentId, set inferred=true and explain in warnings.
 - provenance.quote must be an exact substring from the provided markdown.
 - Output JSON only.
+- Page Names may or may not be WBS items. Check the context to determine if they are WBS items.
 
 DOCUMENT CONTEXT AWARENESS:
 When document context is provided, use it to:
@@ -54,7 +55,7 @@ When document context is provided, use it to:
 MATRIX LAYOUT HANDLING:
 If the document uses a matrix layout (rows = categories, columns = phases):
 - Row headers ARE WBS categories (extract them)
-- Column headers (phases like "Predesign", "Schematic Design") are NOT WBS items
+- Column headers (phases like "Predesign", "Schematic Design") are MAY BE WBS items. Check the context to determine if they are WBS items.
 - Items in cells are deliverables that belong to their row category
 `;
 
