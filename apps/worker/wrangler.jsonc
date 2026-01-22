@@ -1,64 +1,27 @@
 {
-	"name": "wbs-json-pipeline",
+	"name": "wbs-worker2",
 	"$schema": "https://developers.cloudflare.com/wrangler/schema.json",
 	"main": "src/index.ts",
 	"account_id": "004dc1af737b22a8aa83b3550fa9b9d3",
 	"compatibility_date": "2025-07-12",
 	"compatibility_flags": ["nodejs_compat_v2"],
 	"workers_dev": true,
-	"workflows": [
-		{
-			"name": "wbs-workflow",
-			"binding": "WBS_WORKFLOW",
-			"class_name": "WbsWorkflow"
-		}
-	],
 
 	"durable_objects": {
-		"bindings": [{ "name": "JOB_STATUS_DO", "class_name": "JobStatusDO" }]
+		"bindings": [{ "name": "JOB_DO", "class_name": "JobDO" }]
 	},
 
-	"migrations": [{ "tag": "v1", "new_classes": ["JobStatusDO"] }],
+	"migrations": [{ "tag": "v1", "new_classes": ["JobDO"] }],
 
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "wbs-doc-agent",
-			"database_id": "039e8793-5a1f-4b90-ba9b-3a0b8b5c8ac2",
-			"migrations_dir": "migrations",
-			"remote": true
-		}
-	],
-
-	"kv_namespaces": [
-		{
-			"binding": "DI_CACHE_KV",
-			"id": "9f0da4ac2c344ce1a672d13eb4809e98",
-			"remote": true
-		}
-	],
 	"r2_buckets": [
-		{ "binding": "UPLOADS_R2", "bucket_name": "wbs-uploads", "remote": true }
+		{ "binding": "BUCKET", "bucket_name": "doc-n8n-test", "remote": true }
 	],
 
 	"vars": {
 		"ENVIRONMENT": "dev",
-
-		"DI_BACKEND_URL": "https://markdown-micro.thewbsproject.workers.dev/api/process",
-		"DI_MODEL": "prebuilt-layout",
-		"DI_BACKEND_VERSION": "v1",
-		"DI_CACHE_TTL_SECONDS": "604800",
-		"DI_CACHE_ENABLED": "true",
-
-		"LLM_DEFAULT_VERIFY_PROVIDER": "gemini,large",
-		"LLM_DEFAULT_EXTRACT_PROVIDER": "openai,large",
-		"LLM_DEFAULT_JUDGE_PROVIDER": "gemini,large",
-		"LLM_DEFAULT_SUMMARY_PROVIDER": "gemini,large",
-
-		"R2_S3_ENDPOINT": "https://004dc1af737b22a8aa83b3550fa9b9d3.r2.cloudflarestorage.com",
-		"R2_S3_REGION": "auto",
-		"R2_S3_BUCKET": "wbs-uploads",
-		"R2_PRESIGN_TTL_SECONDS": "900"
+		"N8N_WORKFLOW_URL_TEST": "https://thewbsprojec.app.n8n.cloud/webhook-test/66122e04-b625-4fba-a13a-4063bc36f9a3",
+		"N8N_WORKFLOW_URL_PROD": "https://thewbsprojec.app.n8n.cloud/webhook/66122e04-b625-4fba-a13a-4063bc36f9a3",
+		"N8N_ANSWER_URL": "https://n8n.example.com/webhook/answer"
 	},
 
 	"observability": { "enabled": true }

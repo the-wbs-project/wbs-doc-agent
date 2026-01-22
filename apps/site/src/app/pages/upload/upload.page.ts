@@ -72,6 +72,14 @@ import { JobsService } from '../../services/jobs.service';
             ></ejs-checkbox>
           </div>
 
+          <div class="mt-4">
+            <ejs-checkbox
+              label="Use Test Workflow"
+              [checked]="useTestWorkflow()"
+              (change)="onUseTestWorkflowChange($event)"
+            ></ejs-checkbox>
+          </div>
+
           <div class="mt-6">
             <label class="block text-sm text-gray-600 mb-2">Context for Model (optional)</label>
             <textarea
@@ -136,6 +144,7 @@ export class UploadPage {
   selectedFile = signal<File | null>(null);
   mode = signal<string>('strict');
   skipCache = signal(false);
+  useTestWorkflow = signal(true);
   userContext = '';
   uploading = signal(false);
   error = signal<string | null>(null);
@@ -170,6 +179,10 @@ export class UploadPage {
     this.skipCache.set(event.checked ?? false);
   }
 
+  onUseTestWorkflowChange(event: CheckboxChangeEventArgs) {
+    this.useTestWorkflow.set(event.checked ?? true);
+  }
+
   upload() {
     const file = this.selectedFile();
     if (!file) return;
@@ -177,12 +190,7 @@ export class UploadPage {
     this.uploading.set(true);
     this.error.set(null);
 
-    const options: { skipCache?: boolean; userContext?: string } = { skipCache: this.skipCache() };
-    if (this.userContext.trim()) {
-      options.userContext = this.userContext.trim();
-    }
-
-    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment', options).subscribe({
+    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment', this.userContext?.trim() ?? '', this.useTestWorkflow()).subscribe({
       next: (res) => {
         this.router.navigate(['/job', res.jobId]);
       },

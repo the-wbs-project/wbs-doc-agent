@@ -6,7 +6,7 @@ const STORAGE_KEY = 'wbs-api-environment';
 
 const API_URLS: Record<ApiEnvironment, string> = {
   local: '', // Empty string uses relative URLs (works with proxy in dev)
-  production: 'https://wbs-json-pipeline.thewbsproject.workers.dev',
+  production: 'https://wbs-worker2.thewbsproject.workers.dev',
 };
 
 @Injectable({ providedIn: 'root' })

@@ -77,14 +77,14 @@ export class JobsService {
     return this.envService.apiUrl;
   }
 
-  uploadFile(file: File, mode: 'strict' | 'best_judgment' = 'strict', options?: { skipCache?: boolean }): Observable<UploadResponse> {
+  uploadFile(file: File, mode: 'strict' | 'best_judgment' = 'strict', userContext: string, useTestWorkflow = true): Observable<UploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', mode);
-    if (options) {
-      formData.append('options', JSON.stringify(options));
-    }
-    return this.http.post<UploadResponse>(`${this.apiUrl}/api/jobs`, formData);
+    formData.append('userContext', userContext);
+    formData.append('useTestWorkflow', useTestWorkflow ? 'true' : 'false');
+
+    return this.http.post<UploadResponse>(`${this.apiUrl}/api/upload`, formData);
   }
 
   getStatus(jobId: string): Observable<JobStatus> {
