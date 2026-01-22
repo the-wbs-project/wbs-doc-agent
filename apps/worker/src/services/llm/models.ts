@@ -10,9 +10,9 @@ export const AI_MODELS = {
         large: 'claude-opus-4-5'
     },
     gemini: {
-        small: 'gemini-3-pro-preview',
-        medium: 'gemini-3-pro-preview',
-        large: 'gemini-3-pro-preview',
+        small: 'gemini-3-flash-preview',
+        medium: 'gemini-3-flash-preview',
+        large: 'gemini-3-flash-preview',
     }
 };
 

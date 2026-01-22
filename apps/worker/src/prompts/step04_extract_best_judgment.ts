@@ -1,6 +1,7 @@
 import type { GlobalContext } from "../services/extractService";
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
+import type { ColumnDecision } from "../workflows/wbs-steps/await-column-decision";
 
 export const PROMPT_ID = "step04_extract_best_judgment_v3";
 
@@ -64,18 +65,25 @@ export function buildUserPrompt(input: {
   mode: JobMode;
   region: Region;
   globalContext?: GlobalContext;
+  userContext?: string;
+  columnDecision?: ColumnDecision | null;
 }) {
-  const { jobId, region, globalContext } = input;
+  const { jobId, region, globalContext, userContext, columnDecision } = input;
 
   let contextSection = "";
   if (globalContext?.regionGuidance) {
     const g = globalContext.regionGuidance;
+    const columnHeadersLine = g.columnHeaders
+      ? columnDecision?.treatAsNodes
+        ? `- Column headers (ARE WBS items per user decision): ${g.columnHeaders.join(", ")}`
+        : `- Column headers (NOT WBS items per user decision): ${g.columnHeaders.join(", ")}`
+      : "";
     contextSection = `
 DOCUMENT CONTEXT:
 - Section path: ${g.sectionPath?.join(" > ") ?? "unknown"}
 - Suggested WBS prefix: ${g.suggestedParentWbs || "determine from content"}
 - Layout type: ${g.layoutHint}
-${g.columnHeaders ? `- Column headers (NOT WBS items): ${g.columnHeaders.join(", ")}` : ""}
+${columnHeadersLine}
 ${g.rowHeader ? `- Row header (IS a WBS category): ${g.rowHeader}` : ""}
 - Guidance: ${g.extractionNotes}
 
@@ -87,11 +95,19 @@ DOCUMENT CONTEXT: Not available. Extract based on content only.
 `;
   }
 
+  const userContextSection = userContext
+    ? `
+USER-PROVIDED CONTEXT:
+${userContext}
+`
+    : "";
+
   return `
 JobId: ${jobId}
 Mode: best_judgment
 
 Extract WBS nodes from this region into a flat list.
+${userContextSection}
 ${contextSection}
 REGION:
 - regionId: ${region.regionId}

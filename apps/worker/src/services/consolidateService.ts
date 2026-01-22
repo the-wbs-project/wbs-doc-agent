@@ -1,7 +1,6 @@
-import type { JobMode } from "../models/job";
 import type { WbsNode } from "../models/wbs";
 
-export function consolidate(nodes: WbsNode[], mode: JobMode) {
+export function consolidate(nodes: WbsNode[]) {
   // Simple draft consolidation:
   // - If wbsLevel exists, infer parent by truncation if matching node exists.
   const byWbs = new Map<string, WbsNode>();
@@ -19,13 +18,8 @@ export function consolidate(nodes: WbsNode[], mode: JobMode) {
     const parent = byWbs.get(parentLevel);
     if (parent) {
       n.parentId = parent.id;
-      if (mode === "best_judgment") {
-        n.inferred = true;
-        n.warnings = [...(n.warnings ?? []), "inferred_parent_from_wbsLevel"];
-      } else {
-        // strict: still ok if derived from explicit numbering; mark warning rather than inferred
-        n.warnings = [...(n.warnings ?? []), "parent_assigned_from_wbsLevel"];
-      }
+      // strict: still ok if derived from explicit numbering; mark warning rather than inferred
+      n.warnings = [...(n.warnings ?? []), "parent_assigned_from_wbsLevel"];
     }
   }
 

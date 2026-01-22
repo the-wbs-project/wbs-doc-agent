@@ -1,13 +1,13 @@
 import { JsonPipe } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, type OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
 import { TabModule } from '@syncfusion/ej2-angular-navigations';
 import { ToolbarService, TreeGridModule } from '@syncfusion/ej2-angular-treegrid';
-import { catchError, forkJoin, of, tap } from 'rxjs';
+import { catchError, of, tap } from 'rxjs';
 import { JsonTreeComponent } from '../../components/json-tree.component';
-import { ArtifactInfo, JobResult, JobsService, JobStatus } from '../../services/jobs.service';
+import { type ArtifactInfo, type JobResult, type JobStatus, JobsService } from '../../services/jobs.service';
 import { StatusWsService } from '../../services/status-ws.service';
 
 @Component({
@@ -55,6 +55,54 @@ import { StatusWsService } from '../../services/status-ws.service';
               ></div>
             </div>
           </div>
+
+          @if (status()!.state === 'awaiting_input' && status()!.pendingInput) {
+            <div class="bg-amber-50 border-2 border-amber-400 rounded-lg p-6 mb-6">
+              <h3 class="text-amber-800 font-semibold text-lg mb-3 flex items-center gap-2">
+                <span class="text-2xl">⚠️</span> Input Required
+              </h3>
+
+              @if (status()!.pendingInput!.type === 'column_decision') {
+                <p class="text-gray-700 mb-4">{{ status()!.pendingInput!.message }}</p>
+
+                <div class="bg-white rounded border border-amber-200 p-4 mb-4">
+                  <p class="text-sm text-gray-500 mb-2">Detected column headers:</p>
+                  <div class="flex flex-wrap gap-2">
+                    @for (col of status()!.pendingInput!.columnHeaders; track col) {
+                      <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">
+                        {{ col }}
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="flex gap-3">
+                  <button
+                    class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+                    [disabled]="submittingInput()"
+                    (click)="submitColumnDecision(true)"
+                  >
+                    @if (submittingInput()) {
+                      Submitting...
+                    } @else {
+                      Yes, treat as WBS nodes
+                    }
+                  </button>
+                  <button
+                    class="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                    [disabled]="submittingInput()"
+                    (click)="submitColumnDecision(false)"
+                  >
+                    @if (submittingInput()) {
+                      Submitting...
+                    } @else {
+                      No, just informational
+                    }
+                  </button>
+                </div>
+              }
+            </div>
+          }
 
           @if (status()!.errors.length > 0) {
             <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -245,12 +293,27 @@ export class JobPage implements OnInit {
   artifactIsText = signal(false);
   artifactLoading = signal(false);
   copied = signal(false);
+  submittingInput = signal(false);
 
   progressBarColor(): string {
     const state = this.status()?.state;
     if (state === 'completed') return 'bg-emerald-500';
     if (state === 'failed') return 'bg-red-500';
+    if (state === 'awaiting_input') return 'bg-amber-400';
     return 'bg-amber-500';
+  }
+
+  submitColumnDecision(treatAsNodes: boolean) {
+    this.submittingInput.set(true);
+    this.jobsService.submitInput(this.jobId(), 'column_decision', { treatAsNodes }).subscribe({
+      next: () => {
+        this.submittingInput.set(false);
+      },
+      error: (err) => {
+        this.submittingInput.set(false);
+        console.error('Failed to submit decision', err);
+      },
+    });
   }
 
   ngOnInit() {

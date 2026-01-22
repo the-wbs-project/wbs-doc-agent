@@ -19,7 +19,8 @@ export async function globalAnalysisStep(ctx: WbsWorkflowContext, env: Env, diNo
             jobId: ctx.job.jobId,
             fullContent: buildFullDocumentContent(diNormalized, regions),
             regions,
-            pageCount: diNormalized.pages.length || 1
+            pageCount: diNormalized.pages.length || 1,
+            userContext: ctx.job.options?.userContext as string | undefined
         });
 
         await Promise.all([

@@ -1,0 +1,16 @@
+[
+    {
+        "jobId": "job-123",
+        "fileName": "20200608_cpm_design_deliverables.pdf",
+        "userContext": "Skip the first page, it's just informational"
+    },
+    {
+        "jobId": "job-456",
+        "fileName": "House Construction.pdf"
+    },
+    {
+        "jobId": "job-789",
+        "fileName": "Ardurra PD&E Staff Hours (v2024.01 May).xlsx",
+        "userContext": "Some nodes may have children located in a seperate area than it's parent node. Also, some line items won't have numbers attached to them but are obviously children."
+    }
+]

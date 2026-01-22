@@ -78,6 +78,32 @@ jobsRoute.get("/:jobId/ws", async (c) => {
     return stub.fetch(c.req.raw);
 });
 
+jobsRoute.post("/:jobId/input", async (c) => {
+    const log = createLogger({ scope: "route:POST /jobs/:jobId/input" });
+    const jobId = c.req.param("jobId");
+
+    try {
+        const body = await c.req.json<{ type: string; decision: unknown }>();
+
+        if (body.type === "column_decision") {
+            const decision = body.decision as { treatAsNodes: boolean };
+            log.info("column_decision_received", { jobId, treatAsNodes: decision.treatAsNodes });
+
+            // Send event to workflow to resume it
+            const instance = await c.env.WBS_WORKFLOW.get(jobId);
+            await instance.sendEvent({ type: "column_decision", payload: decision });
+
+            return c.json({ ok: true });
+        }
+
+        return c.json({ error: "unknown_input_type" }, 400);
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        log.error("input_failed", { jobId, error: msg });
+        return c.json({ error: msg }, 500);
+    }
+});
+
 jobsRoute.get("/:jobId/result", async (c) => {
     const jobId = c.req.param("jobId");
     const repos = Repositories.create(c.env);

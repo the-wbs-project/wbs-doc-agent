@@ -78,18 +78,27 @@ export function buildUserPrompt(input: {
   fullContent: string;
   regions: Region[];
   pageCount: number;
+  userContext?: string;
 }) {
-  const { jobId, fullContent, regions, pageCount } = input;
+  const { jobId, fullContent, regions, pageCount, userContext } = input;
 
   const regionList = regions.map((r, i) =>
     `  ${i + 1}. regionId: ${r.regionId}, page: ${r.pageOrSheet}`
   ).join('\n');
 
+  const userContextSection = userContext
+    ? `
+USER-PROVIDED CONTEXT:
+The user has provided the following information about this document. Use this to guide your analysis:
+${userContext}
+`
+    : "";
+
   return `
 JobId: ${jobId}
 
 Analyze this document to understand its structure and provide extraction guidance.
-
+${userContextSection}
 DOCUMENT STATISTICS:
 - Total pages: ${pageCount}
 - Total regions: ${regions.length}
@@ -107,7 +116,7 @@ IMPORTANT:
 1. For EACH region listed above, provide a regionGuidance entry
 2. Identify the document's organizational pattern
 3. Build a skeleton of the TOP-LEVEL sections only
-4. For matrix layouts: column headers are phases, NOT WBS items
+4. For matrix layouts: column headers are sometimes phases, sometimes not. Check the user context to determine if they are WBS items. If no user context was provided, use your best judgement.
 5. Provide clear extractionNotes for each region explaining:
    - What section/category this region belongs to
    - What the items represent (deliverables, tasks, milestones, etc.)

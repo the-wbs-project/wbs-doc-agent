@@ -3,7 +3,14 @@ import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { EnvironmentService } from './environment.service';
 
-export type JobState = 'queued' | 'running' | 'completed' | 'failed';
+export type JobState = 'queued' | 'running' | 'awaiting_input' | 'completed' | 'failed';
+
+export interface PendingInput {
+  type: 'column_decision';
+  columnHeaders: string[];
+  documentPattern: string;
+  message: string;
+}
 
 export interface JobStatus {
   jobId: string;
@@ -12,6 +19,7 @@ export interface JobStatus {
   percent: number;
   messages: Array<{ ts: string; level: 'info' | 'warn' | 'error'; msg: string; data?: any }>;
   errors: Array<{ ts: string; msg: string; data?: any }>;
+  pendingInput?: PendingInput;
   updatedAt: string;
 }
 
@@ -96,6 +104,10 @@ export class JobsService {
     return this.http.get(`${this.apiUrl}/api/jobs/${jobId}/artifacts/${artifactKey}`, {
       responseType: isTextFile ? 'text' : 'json',
     } as any);
+  }
+
+  submitInput(jobId: string, type: string, decision: unknown): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.apiUrl}/api/jobs/${jobId}/input`, { type, decision });
   }
 }
 

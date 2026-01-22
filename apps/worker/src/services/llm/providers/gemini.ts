@@ -26,5 +26,6 @@ export async function chatGemini(siteConfig: SiteConfig, cfg: LlmConfig, message
 
   if (!res.ok) throw new Error(`Gemini failed: ${res.status} ${await res.text()}`);
   const data: any = await res.json();
+
   return data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
 }

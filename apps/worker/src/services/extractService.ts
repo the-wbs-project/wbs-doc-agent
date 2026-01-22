@@ -3,8 +3,6 @@ import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
 import type { SiteConfig } from "../models/site-config";
 import type { WbsNode } from "../models/wbs";
-import * as bestPrompt from "../prompts/step04_extract_best_judgment";
-import * as strictPrompt from "../prompts/step04_extract_strict";
 import { uuid } from "./id";
 import { generateJson } from "./llm/llmClient";
 

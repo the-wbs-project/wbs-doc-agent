@@ -1,8 +1,10 @@
 import { Component, inject, signal, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ButtonModule, CheckBoxModule, RadioButtonModule } from '@syncfusion/ej2-angular-buttons';
 import type { ChangeArgs, ChangeEventArgs as CheckboxChangeEventArgs } from '@syncfusion/ej2-angular-buttons';
 import { DropDownListModule } from '@syncfusion/ej2-angular-dropdowns';
+import { TextBoxModule } from '@syncfusion/ej2-angular-inputs';
 import { UploaderModule } from '@syncfusion/ej2-angular-inputs';
 import type { SelectedEventArgs, UploaderComponent } from '@syncfusion/ej2-angular-inputs';
 import type { ChangeEventArgs } from '@syncfusion/ej2-angular-dropdowns';
@@ -11,7 +13,7 @@ import { JobsService } from '../../services/jobs.service';
 
 @Component({
   selector: 'app-upload',
-  imports: [UploaderModule, DropDownListModule, ButtonModule, RadioButtonModule, CheckBoxModule],
+  imports: [UploaderModule, DropDownListModule, ButtonModule, RadioButtonModule, CheckBoxModule, TextBoxModule, FormsModule],
   template: `
     <div class="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-4">
       <div class="w-full max-w-lg">
@@ -71,6 +73,16 @@ import { JobsService } from '../../services/jobs.service';
           </div>
 
           <div class="mt-6">
+            <label class="block text-sm text-gray-600 mb-2">Context for Model (optional)</label>
+            <textarea
+              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+              rows="4"
+              placeholder="Provide any helpful context about this document... (e.g., document type, specific instructions, terminology hints)"
+              [(ngModel)]="userContext"
+            ></textarea>
+          </div>
+
+          <div class="mt-6">
             <button
               ejs-button
               [isPrimary]="true"
@@ -124,6 +136,7 @@ export class UploadPage {
   selectedFile = signal<File | null>(null);
   mode = signal<string>('strict');
   skipCache = signal(false);
+  userContext = '';
   uploading = signal(false);
   error = signal<string | null>(null);
 
@@ -164,7 +177,12 @@ export class UploadPage {
     this.uploading.set(true);
     this.error.set(null);
 
-    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment', { skipCache: this.skipCache() }).subscribe({
+    const options: { skipCache?: boolean; userContext?: string } = { skipCache: this.skipCache() };
+    if (this.userContext.trim()) {
+      options.userContext = this.userContext.trim();
+    }
+
+    this.jobsService.uploadFile(file, this.mode() as 'strict' | 'best_judgment', options).subscribe({
       next: (res) => {
         this.router.navigate(['/job', res.jobId]);
       },

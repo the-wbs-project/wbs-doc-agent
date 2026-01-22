@@ -4,6 +4,7 @@ import type { WbsNode } from "../models/wbs";
 import { createLogger } from "../services/logger";
 import { Repositories } from "../services/d1/repositories";
 import { appendStatus, setStatus } from "../status/statusClient";
+import { awaitColumnDecisionStep } from "./wbs-steps/await-column-decision";
 import { consolidateStep } from "./wbs-steps/consolidate";
 import { diCheckCacheAndCall } from "./wbs-steps/di-check-cache-and-call";
 import { diStatusUpdate } from "./wbs-steps/di-status-update";
@@ -54,6 +55,9 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       // --- Step 03b: Global Document Analysis ---
       const globalAnalysis = await step.do("global-analysis", () => globalAnalysisStep(ctx, env, diNormalized, regions, log));
 
+      // --- Step 03c: Await column decision if matrix document ---
+      const columnDecision = await awaitColumnDecisionStep(ctx, env, globalAnalysis, step, log);
+
       await step.do("extract-status-update", () => extractStatusUpdateStep(ctx, env, regions, log));
 
       // --- Step 04 extract ---
@@ -69,7 +73,7 @@ export class WbsWorkflow extends WorkflowEntrypoint<Env, Params> {
       for (let batchIdx = 0; batchIdx < regionBatches.length; batchIdx++) {
         const batch = regionBatches[batchIdx];
         const batchStartIdx = batchIdx * BATCH_SIZE;
-        const batchNodes = await step.do(`extract-batch`, () => extractBatchStep(ctx, env, batch, batchStartIdx, regions, globalAnalysis, log));
+        const batchNodes = await step.do(`extract-batch`, () => extractBatchStep(ctx, env, batch, batchStartIdx, regions, globalAnalysis, columnDecision, log));
 
         extractedNodes.push(...batchNodes);
       }

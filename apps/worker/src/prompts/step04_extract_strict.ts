@@ -1,6 +1,7 @@
 import type { JobMode } from "../models/job";
 import type { Region } from "../models/regions";
 import type { GlobalContext } from "../services/extractService";
+import type { ColumnDecision } from "../workflows/wbs-steps/await-column-decision";
 
 export const PROMPT_ID = "step04_extract_strict_v3";
 
@@ -48,13 +49,11 @@ DOCUMENT CONTEXT AWARENESS:
 When document context is provided, use it to:
 - Understand where this region fits in the overall document hierarchy
 - Apply correct WBS numbering if evidence clearly supports it
-- Recognize column headers (in matrix layouts) as organizational elements, NOT WBS items
 - In strict mode, only use context if content clearly supports it
 
 MATRIX LAYOUT HANDLING:
 If the document uses a matrix layout (rows = categories, columns = phases):
 - Row headers ARE WBS categories (extract them)
-- Column headers (phases like "Predesign", "Schematic Design") are MAY BE WBS items. Check the context to determine if they are WBS items.
 - Items in cells are deliverables that belong to their row category
 `;
 
@@ -63,34 +62,45 @@ export function buildUserPrompt(input: {
   mode: JobMode;
   region: Region;
   globalContext?: GlobalContext;
+  userContext?: string;
+  columnDecision?: ColumnDecision | null;
 }) {
-  const { jobId, region, globalContext } = input;
+  const { jobId, region, globalContext, userContext, columnDecision } = input;
 
-  let contextSection = "";
+  const documentContexts: string[] = [];
+
   if (globalContext?.regionGuidance) {
     const g = globalContext.regionGuidance;
-    contextSection = `
-DOCUMENT CONTEXT (use as guidance, but only extract what content supports):
-- Section path: ${g.sectionPath?.join(" > ") || "unknown"}
-- Suggested WBS prefix: ${g.suggestedParentWbs || "determine from content"}
-- Layout type: ${g.layoutHint}
-${g.columnHeaders ? `- Column headers (NOT WBS items): ${g.columnHeaders.join(", ")}` : ""}
-${g.rowHeader ? `- Row header (IS a WBS category): ${g.rowHeader}` : ""}
-- Guidance: ${g.extractionNotes}
 
-In strict mode, use context to avoid creating nodes for column headers, but do NOT infer parents unless clearly supported.
-`;
-  } else {
-    contextSection = `
-DOCUMENT CONTEXT: Not available. Extract based on content only.
-`;
+    documentContexts.push(`- Section path: ${g.sectionPath?.join(" > ") || "unknown"}`);
+    documentContexts.push(`- Suggested WBS prefix: ${g.suggestedParentWbs || "determine from content"}`);
+    documentContexts.push(`- Layout type: ${g.layoutHint}`);
+
+    if (g.columnHeaders) {
+      documentContexts.push(`- Column headers: ${g.columnHeaders.join(", ")}`);
+      documentContexts.push(`- Are Column Headers Nodes?: ${columnDecision?.treatAsNodes ? "Yes" : "No"}`);
+    }
+    documentContexts.push(g.rowHeader ? `- Row header (IS a WBS category): ${g.rowHeader}` : "");
+    documentContexts.push(`- Guidance: ${g.extractionNotes}`);
+
+    documentContexts.push(`In strict mode, use context to avoid creating nodes for column headers, but do NOT infer parents unless clearly supported.`);
   }
+  let contextSection = "DOCUMENT CONTEXT:\n\n";
+
+  if (documentContexts.length === 0) {
+    contextSection += `Not available. Extract based on content only.`;
+  } else {
+    contextSection += documentContexts.join("\n");
+  }
+
+  const userContextSection = userContext ? `USER-PROVIDED CONTEXT:\n\n${userContext}\n\n` : "";
 
   return `
 JobId: ${jobId}
 Mode: strict
 
 Extract WBS nodes from this region.
+${userContextSection}
 ${contextSection}
 REGION:
 - regionId: ${region.regionId}

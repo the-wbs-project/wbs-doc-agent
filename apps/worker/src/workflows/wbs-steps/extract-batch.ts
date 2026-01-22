@@ -8,8 +8,9 @@ import type { Logger } from "../../services/logger";
 import { setStatus } from "../../status/statusClient";
 import * as bestPrompt from "../../prompts/step04_extract_best_judgment";
 import * as strictPrompt from "../../prompts/step04_extract_strict";
+import type { ColumnDecision } from "./await-column-decision";
 
-export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch: Region[], batchStartIdx: number, regions: Region[], globalAnalysis: GlobalAnalysis, logger: Logger): Promise<WbsNode[]> {
+export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch: Region[], batchStartIdx: number, regions: Region[], globalAnalysis: GlobalAnalysis, columnDecision: ColumnDecision | null, logger: Logger): Promise<WbsNode[]> {
     try {
         logger.info("extract-batch - starting", { index: batchStartIdx, length: batch.length });
 
@@ -47,6 +48,8 @@ export async function extractBatchStep(ctx: WbsWorkflowContext, env: Env, batch:
                             analysis: globalAnalysis,
                             regionGuidance: regionGuidance?.context
                         },
+                        userContext: ctx.job.options?.userContext as string | undefined,
+                        columnDecision
                     });
 
                     await Promise.all([

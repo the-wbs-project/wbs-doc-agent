@@ -3,13 +3,21 @@ import { createLogger } from "../services/logger";
 
 export type StatusLevel = "info" | "warn" | "error";
 
+export type PendingInput = {
+  type: "column_decision";
+  columnHeaders: string[];
+  documentPattern: string;
+  message: string;
+};
+
 export type JobStatus = {
   jobId: string;
-  state: "queued" | "running" | "completed" | "failed";
+  state: "queued" | "running" | "awaiting_input" | "completed" | "failed";
   step: string;
   percent: number;
   messages: Array<{ ts: string; level: StatusLevel; msg: string; data?: any }>;
   errors: Array<{ ts: string; msg: string; data?: any }>;
+  pendingInput?: PendingInput;
   updatedAt: string;
 };
 
